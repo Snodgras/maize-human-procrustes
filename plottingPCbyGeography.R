@@ -258,6 +258,16 @@ ggplot(centroidPCs_ind_human, aes(x=PC1.maize,y=PC2.maize))+
 
 #### 3. Mexicana admixture removal from Mexican maize ####
 
+##DRAFTED, NEEDS VALIDATION##
+#since we're using mean genotypes
+#G is the genotype observed
+#P_mz is the maize allele-frequency
+#P_mx is the mexicana allele-frequency
+#alpha = genome wide admixture proprotion
+#G' is the new genotype with the mexicana ancestry removed
+# G' = (G - 2*P_mx*alpha)/(1-alpha)
+
+
 #### 4. Pairing maize and human PCs ####
 
 #### 5. Procrustes ####
