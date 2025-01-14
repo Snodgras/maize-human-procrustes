@@ -2,6 +2,8 @@
 library(tidyverse)
 library(vegan)
 
+#### 0. Import data ####
+
 #human pc data
 human_pcs<-read_csv("/group/jrigrp11/snodgras_maizePopulations/human_PCs/all-indigenous.pca.csv")
 
@@ -11,19 +13,15 @@ human_meta<-read_csv("/group/jrigrp11/snodgras_maizePopulations/human_PCs/indige
 #joined dataframe
 human<-inner_join(human_pcs, human_meta, by = c("sample_name" = "sample_id" ))
 
+#### 1. Identify outliers and remove ####
+
+### HUMAN DATA ###
 #plot pca
 ggplot(human, aes(x=PC_1,y=PC_2))+
   geom_point(aes(color = Region))+
   theme_bw()+
   xlab("PC1")+ylab("PC2")+
   ggtitle("Indigenous human PCA")
-
-#What is the upper right outlier in the PCA plot? (high PC1 and PC2)
-#outlier<-filter(human, PC_1 > 300 & PC_2 > 250)
-#filter(human, Country == outlier$Country[1]) #21 individuals
-#filter(human, Ethnicity == outlier$Ethnicity[1]) #20 individuals
-#so it's not that they're a lone representative of a group
-#human<-filter(human, sample_name != outlier$sample_name[1])
 
 human.outlier.stats<-human %>% group_by(Region) %>% summarize(mean.PC1 = mean(PC_1, na.rm = T),
                                          mean.PC2 = mean(PC_2, na.rm = T),
@@ -46,12 +44,19 @@ human_noOutliers<-filter(human, !sample_name %in% outlier$sample_name)
 human_noOutliers<-filter(human_noOutliers, !sample_name %in% c("GA006377","GA006434","GA004777","GA006473",
                                              "GA004778","GA006357","GA004764","GA004803","GA006340","GA004774",
                                              'GA006557',"GA004768","GA006380","GA006447","GA004798","GA006553"))
+
 #plot location
 ggplot(human_noOutliers, aes(x=longitude,y=latitude))+
   geom_point()+
   theme_bw()+
   xlab("Longitude")+ylab("Latitude")+
   ggtitle("Indigenous human location")
+
+### MAIZE DATA ###
+
+
+
+
   
 
 #compute procrustes using vegan 2.6-4
