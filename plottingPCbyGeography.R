@@ -137,6 +137,58 @@ Mexpve<- data.frame(PC = 1:length(Mexmaize_eigenval), pve = (Mexmaize_eigenval/s
 Mexmaize<-mutate(Mexmaize_pca, sample_id = str_split(ind, ":",simplify = T)[,1]) %>%
   inner_join(y=maize_meta, by = c("sample_id" = "Sample_ID_of_DNA_from_single_plants_used_in_GWAS"))
 
+#### Pair humans with maize PC centroids based on 20km buffer ####
+ind_human_maize_20km_buffer<-read_csv("/group/jrigrp11/snodgras_maizePopulations/Individual-human-20km-maize-samples-joined.csv")
+colnames(ind_human_maize_20km_buffer)<-c("sample_id","Ethnicity","Country.human","Region","latitude","longitude","Indigenous_Proportion","id","general_identifier",
+                                         "name","bank_number","taxonomy_id","collnumb","colldate","location_id","created_on","locations_id","locations_region",
+                                         "locations_site_name","locations_elevation","locations_latitude","locations_longitude","countries_id","countries_country_code2",
+                                         "countries_country_code3","countries_country_name","taxonomies_id","taxonomies_genus","taxonomies_species","taxonomies_crop_name",
+                                         "taxonomies_ploidy","Sample_ID_of_DNA_from_composite_samples","Sample_ID_of_DNA_from_most_recent_CML_regenerations",
+                                         "Sample_ID_of_DNA_from_single_plants_used_in_GWAS","Tester_GID","Tester_pedigree","Testcross_GID","PrimaryRace","PrimaryPurity",
+                                         "SecondaryRace","Pedigree","GrainType1","GrainType2","GrainType3","GrainColor1","GrainColor2","GrainColor3","PopulationType")
+ind_human_maize_20km_buffer %>% group_by(sample_id) %>% count() %>% 
+  ggplot(aes(x=n))+
+  geom_histogram(binwidth = 1)
+
+#write out the ids so that pca can be rerun on just those samples
+selected_passport_ids<-read_csv("/group/jrigrp11/snodgras_maizePopulations/selected_genotypeIDs.csv", col_names = c("vcf_sample_id","gwas_sample_id"))
+filter(selected_passport_ids, gwas_sample_id %in% ind_human_maize_20km_buffer$Sample_ID_of_DNA_from_single_plants_used_in_GWAS) %>% 
+  write_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/21km_maize_samples_ids.tsv")
+
+#after running pca
+ind_human_maize_20km_buffer.pca<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/filtered_centeredMaizeGBS.pca")
+colnames(ind_human_maize_20km_buffer.pca)[1]<-"ind"
+ind_human_maize_20km_buffer.eigenval<-read_lines("/group/jrigrp11/snodgras_maizePopulations/21km_maize/filtered_centeredMaizeGBS.eigenval") %>% as.numeric()
+
+km21_pve<- data.frame(PC = 1:length(ind_human_maize_20km_buffer.eigenval), pve = (ind_human_maize_20km_buffer.eigenval/sum(ind_human_maize_20km_buffer.eigenval))*100)
+
+ggplot(ind_human_maize_20km_buffer.pca, aes(x=PC1, y=PC2))+
+  geom_point()+
+  theme_bw()+
+  xlab(paste0("PC1 (", signif(km21_pve$pve[1],3),"%)"))+
+  ylab(paste0("PC2 (", signif(km21_pve$pve[2],3),"%)"))+
+  ggtitle("21km radius maize PCA")
+
+ind_human_maize_20km_buffer<-left_join(x=selected_passport_ids, y=ind_human_maize_20km_buffer.pca, by=c("vcf_sample_id"="ind")) %>% 
+  right_join(x=., y=ind_human_maize_20km_buffer, by=c("gwas_sample_id"="Sample_ID_of_DNA_from_single_plants_used_in_GWAS"))
+
+ggplot(ind_human_maize_20km_buffer, aes(x=PC1, y=PC2))+
+  geom_point(aes(color=locations_elevation))+theme_bw()+
+  scale_color_viridis_c(name="Elevation")+
+  xlab(paste0("PC1 (", signif(km21_pve$pve[1],3),"%)"))+
+  ylab(paste0("PC2 (", signif(km21_pve$pve[2],3),"%)"))+
+  ggtitle("21km radius maize PCA")
+
+#Goal is to find the centroid of PCs for each set of maize samples for a given human sample
+centroidPCs_ind_human<-ind_human_maize_20km_buffer %>% 
+  group_by(sample_id,Region,Ethnicity,latitude,longitude) %>% 
+  summarize(across(contains("PC"), ~ mean(.x,na.rm = T)),
+            mean_elevation.maize=mean(locations_elevation))
+colnames(centroidPCs_ind_human)<-c("sample_name","Region","Ethnicity","latitude","longitude",
+                                   paste0("PC",1:20,".maize"), "mean_elevation.maize")
+#add in the human PCs
+centroidPCs_ind_human<-inner_join(centroidPCs_ind_human, human_pcs, by=("sample_name"))
+
 #### 2. PCA calculations and figure quality plots ####
 
 ### Human data full ### 
@@ -230,6 +282,26 @@ maize_noOutliers%>%
   guides(color = guide_legend(override.aes = list(alpha = 1)))
 ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/maize_PConGeography.png", device = "png",dpi=300,
        height = 6, width=7.5)
+
+#### Centroid 21 km pairings ####
+#plot the maize (centroid) PCs
+ggplot(centroidPCs_ind_human, aes(x=PC1.maize,y=PC2.maize))+
+  geom_point(aes(color=mean_elevation.maize))+
+  theme_bw()+scale_color_viridis_c(name="Mean Elevation")+
+  ggtitle("21km radius maize centroids")
+
+#plot the maize (centroid) PCs colored by human regions
+ggplot(centroidPCs_ind_human, aes(x=PC1.maize,y=PC2.maize))+
+  geom_point(aes(color=Region))+
+  theme_bw()+ theme(legend.text=element_text(size=12))+
+  xlab("maize PC 1")+ylab("maize PC 2")+
+  scale_color_manual(
+    values = c("#fca207","#cb4d8e","#268189","#2d1aff",
+               "#b100ea","#386955","#a7c957"),
+    name = "Region", labels = c(
+                                 "Mexico, Center","Mexico, Gulf", 
+                                "Mexico, Mayan","Mexico, North of Mesoamerica","Mexico, North",
+                                "Mexico, Oaxaca","Mexico, West"))
 
 #### 3. Mexicana admixture removal from Mexican maize ####
 
@@ -331,86 +403,6 @@ ggplot(Mexmaize, aes(x=PC1, y=PC2))+
   theme_bw()+
   scale_color_gradient(low="orange",high = "blue")+
   ggtitle("Mexican maize PCs by elevation")
-#####################################################################################################################################
-
-
-####Maize data####
-
-
-####Maize map####
-
- 
-
-#### Pair humans with maize PC centroids based on 20km buffer ####
-ind_human_maize_20km_buffer<-read_csv("/group/jrigrp11/snodgras_maizePopulations/Individual-human-20km-maize-samples-joined.csv")
-colnames(ind_human_maize_20km_buffer)<-c("sample_id","Ethnicity","Country.human","Region","latitude","longitude","Indigenous_Proportion","id","general_identifier",
-                                         "name","bank_number","taxonomy_id","collnumb","colldate","location_id","created_on","locations_id","locations_region",
-                                         "locations_site_name","locations_elevation","locations_latitude","locations_longitude","countries_id","countries_country_code2",
-                                         "countries_country_code3","countries_country_name","taxonomies_id","taxonomies_genus","taxonomies_species","taxonomies_crop_name",
-                                         "taxonomies_ploidy","Sample_ID_of_DNA_from_composite_samples","Sample_ID_of_DNA_from_most_recent_CML_regenerations",
-                                         "Sample_ID_of_DNA_from_single_plants_used_in_GWAS","Tester_GID","Tester_pedigree","Testcross_GID","PrimaryRace","PrimaryPurity",
-                                         "SecondaryRace","Pedigree","GrainType1","GrainType2","GrainType3","GrainColor1","GrainColor2","GrainColor3","PopulationType")
-ind_human_maize_20km_buffer %>% group_by(sample_id) %>% count() %>% 
-  ggplot(aes(x=n))+
-  geom_histogram(binwidth = 1)
-
-#write out the ids so that pca can be rerun on just those samples
-selected_passport_ids<-read_csv("/group/jrigrp11/snodgras_maizePopulations/selected_genotypeIDs.csv", col_names = c("vcf_sample_id","gwas_sample_id"))
-filter(selected_passport_ids, gwas_sample_id %in% ind_human_maize_20km_buffer$Sample_ID_of_DNA_from_single_plants_used_in_GWAS) %>% 
-  write_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/21km_maize_samples_ids.tsv")
-
-#after running pca
-ind_human_maize_20km_buffer.pca<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/filtered_centeredMaizeGBS.pca")
-colnames(ind_human_maize_20km_buffer.pca)[1]<-"ind"
-ind_human_maize_20km_buffer.eigenval<-read_lines("/group/jrigrp11/snodgras_maizePopulations/21km_maize/filtered_centeredMaizeGBS.eigenval") %>% as.numeric()
-
-km21_pve<- data.frame(PC = 1:length(ind_human_maize_20km_buffer.eigenval), pve = (ind_human_maize_20km_buffer.eigenval/sum(ind_human_maize_20km_buffer.eigenval))*100)
-
-ggplot(ind_human_maize_20km_buffer.pca, aes(x=PC1, y=PC2))+
-  geom_point()+
-  theme_bw()+
-  xlab(paste0("PC1 (", signif(km21_pve$pve[1],3),"%)"))+
-  ylab(paste0("PC2 (", signif(km21_pve$pve[2],3),"%)"))+
-  ggtitle("21km radius maize PCA")
-
-ind_human_maize_20km_buffer<-left_join(x=selected_passport_ids, y=ind_human_maize_20km_buffer.pca, by=c("vcf_sample_id"="ind")) %>% 
-  right_join(x=., y=ind_human_maize_20km_buffer, by=c("gwas_sample_id"="Sample_ID_of_DNA_from_single_plants_used_in_GWAS"))
-
-ggplot(ind_human_maize_20km_buffer, aes(x=PC1, y=PC2))+
-  geom_point(aes(color=locations_elevation))+theme_bw()+
-  scale_color_viridis_c(name="Elevation")+
-  xlab(paste0("PC1 (", signif(km21_pve$pve[1],3),"%)"))+
-  ylab(paste0("PC2 (", signif(km21_pve$pve[2],3),"%)"))+
-  ggtitle("21km radius maize PCA")
-
-#Goal is to find the centroid of PCs for each set of maize samples for a given human sample
-centroidPCs_ind_human<-ind_human_maize_20km_buffer %>% 
-  group_by(sample_id,Region,Ethnicity,latitude,longitude) %>% 
-  summarize(across(contains("PC"), ~ mean(.x,na.rm = T)),
-            mean_elevation.maize=mean(locations_elevation))
-colnames(centroidPCs_ind_human)<-c("sample_name","Region","Ethnicity","latitude","longitude",
-                                   paste0("PC",1:20,".maize"), "mean_elevation.maize")
-#add in the human PCs
-centroidPCs_ind_human<-inner_join(centroidPCs_ind_human, human_pcs, by=("sample_name"))
-
-#plot the maize (centroid) PCs
-ggplot(centroidPCs_ind_human, aes(x=PC1.maize,y=PC2.maize))+
-  geom_point(aes(color=mean_elevation.maize))+
-  theme_bw()+scale_color_viridis_c(name="Mean Elevation")+
-  ggtitle("21km radius maize centroids")
-
-#plot the maize (centroid) PCs colored by human regions
-ggplot(centroidPCs_ind_human, aes(x=PC1.maize,y=PC2.maize))+
-  geom_point(aes(color=Region))+
-  theme_bw()+ theme(legend.text=element_text(size=12))+
-  xlab("maize PC 1")+ylab("maize PC 2")+
-  scale_color_manual(
-    values = c("#fca207","#cb4d8e","#268189","#2d1aff",
-               "#b100ea","#386955","#a7c957"),
-    name = "Region", labels = c(
-                                 "Mexico, Center","Mexico, Gulf", 
-                                "Mexico, Mayan","Mexico, North of Mesoamerica","Mexico, North",
-                                "Mexico, Oaxaca","Mexico, West"))
 
 ####FOR SOME REASON THE SCALE IS WAY OFF FOR THE MAIZE PCS COMPARED TO HUMAN PCS####
 #procrustes of the pair to get the maize (centroid) PCs onto the human PC coordinates
@@ -473,21 +465,7 @@ ungroup(inner_join(human_pcs, ind_human_maize_20km_buffer, by=c("sample_name"="s
 ungroup(inner_join(human_pcs, ind_human_maize_20km_buffer, by=c("sample_name"="sample_id"))) %>% 
   select(c(paste0("PC_",1:10),sample_name,vcf_sample_id)) %>% select(vcf_sample_id) %>% unique()
 
-
-#### Paired points for procrustes of maize and human PCs ####
-paired_output<-read_csv("/group/jrigrp11/snodgras_maizePopulations/anchored_procrustes/anchor.0.out.csv")
-for(i in 1:97){
-  paired_output<-rbind(paired_output, read_csv(paste0("/group/jrigrp11/snodgras_maizePopulations/anchored_procrustes/anchor.",i,".out.csv")))
-}
-#will need to add in 98 and 99, they're taking a while to run
-
-ggplot(paired_output)+
-  geom_histogram(aes(x=SumOfSquares), binwidth = 0.001)
-ggplot(paired_output)+
-  geom_histogram(aes(x = Correlation), binwidth = 0.001)
-
-summary(paired_output)
-
+#### 6. Correlation of PCs ####
 ####Correlation of PCs from paired anchors####
 #create a dataframe where the first column is the iteration and second column is the dataframe (like a list?)
 anchor_pairs<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/anchored_procrustes/1.anchors.tsv")
@@ -658,7 +636,6 @@ ggplot(anchor_pairs)+
   geom_segment(data = na.omit(centroids.2),aes(x=mean.humanPC1,y=mean.humanPC2,xend=mean.maizePC1,yend=mean.maizePC2, color = Region))+
   guides(color = guide_legend(override.aes = list(alpha = 1)))+
   theme_bw()+xlab("Human PC1")+ylab("Human PC2")
-  
 
 ####Ploting PCs against geography####
 
