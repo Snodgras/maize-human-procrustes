@@ -38,3 +38,5 @@ Procrustes calculated using the R package `vegan`.
 
 ## geography vs. population structure
 X dataframe is longitude and latitude (the non-transformed positions) and Y dataframe is PC 1 and PC 2 of either human or maize PCA data (the transformed positions). Thus PC space is converted to lat/long coordinates. 
+
+# 6. Correlation of PCs
