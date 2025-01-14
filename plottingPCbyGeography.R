@@ -16,12 +16,22 @@ human<-inner_join(human_pcs, human_meta, by = c("sample_name" = "sample_id" ))
 #### 1. Identify outliers and remove ####
 
 ### HUMAN DATA ###
+# plot pca function for human datasets
+plot_human_pca<-function(h_data, title){
+  plt<-ggplot(h_data, aes(x=PC_1,y=PC_2))+
+          geom_point(aes(color = Region))+
+          theme_bw()+
+          xlab("PC1")+ylab("PC2")+ggtitle(title)
+  return(plt)
+}
 #plot pca
 ggplot(human, aes(x=PC_1,y=PC_2))+
   geom_point(aes(color = Region))+
   theme_bw()+
   xlab("PC1")+ylab("PC2")+
   ggtitle("Indigenous human PCA")
+#test function
+plot_human_pca(human, "Indigenous human PCA")
 
 human.outlier.stats<-human %>% group_by(Region) %>% summarize(mean.PC1 = mean(PC_1, na.rm = T),
                                          mean.PC2 = mean(PC_2, na.rm = T),
@@ -105,25 +115,7 @@ maize.outlier %>% ggplot(aes(x=locations_longitude, y=locations_latitude, color 
 maize.outlier %>% ggplot(aes(x=PC1, y=PC2, color = countries_country_name))+geom_point()
 
 maize_noOutliers<-filter(maize, !ind %in% maize.outlier$ind)
-maize.protest<-protest(Y = select(maize_noOutliers, c("PC1","PC2")),
-                       X = select(maize_noOutliers, c("locations_longitude","locations_latitude")))
 
-maize_noOutliers<-maize_noOutliers %>% add_column(as.data.frame(maize.protest$Yrot))
-colnames(maize_noOutliers)[67:68]<-c("rotated_PC1","rotated_PC2")
-maize_noOutliers<-maize_noOutliers %>%mutate(rotated_PC1 = rotated_PC1+maize.protest$translation[,1],
-                                             rotated_PC2 = rotated_PC2+maize.protest$translation[,2])
-maize_noOutliers<-mutate(maize_noOutliers, Regions = case_when(countries_country_name %in% c("BOLIVIA","CHILE","PERU") ~ "AndeanHighland",
-                                             countries_country_name %in% c("BRAZIL") ~ "Amazonia",
-                                             countries_country_name %in% c("COLOMBIA","ECUADOR","FRENCH GUIANA","HONDURAS","SURINAME","VENEZUELA") ~ "CentralSouthAmerica",
-                                             countries_country_name %in% c("PARAGUAY","URUGUAY") ~ "ChacoAmerindian",
-                                             countries_country_name %in% c("MEXICO") ~ "Mexico",
-                                             countries_country_name %in% c("ARGENTINA") ~ "Patagonia",
-                                             countries_country_name %in% c("COSTA RICA","EL SALVADOR","GUATEMALA",
-                                                                           "NICARAGUA","PANAMA") ~ "Mesoamerica",
-                                             countries_country_name %in% c("ANTIGUA AND BARBUDA","BARBADOS","CUBA",
-                                                                           "DOMINICAN REPUBLIC","GRENADA","GUADELOUPE",
-                                                                           "HAITI","MARTINIQUE","PUERTO RICO","SAINT VINCENT AND THE GRENADINES",
-                                                                           "TRINIDAD AND TOBAGO","VIRGIN ISLANDS (BRITISH)","VIRGIN ISLANDS (U.S.)") ~ "Caribbean"))
 
 ### maize Mexican only ###
 
@@ -216,72 +208,33 @@ Mexhuman_pca<-read_csv("/group/jrigrp11/snodgras_maizePopulations/human_PCs/all-
 Mexhuman<-inner_join(Mexhuman_pca, human_meta, by = c("sample_name" = "sample_id" ))
 
 #plot pca
-ggplot(Mexhuman, aes(x=PC_1,y=PC_2))+
-  geom_point(aes(color = Region))+
-  theme_bw()+
-  xlab("PC1")+ylab("PC2")+
-  ggtitle("Mexican Indigenous human PCA")
-
-Mexhuman<-mutate(Mexhuman, 
-              proj.longitude = longitude*(pi/180),
-              proj.longitude = (3958.8*proj.longitude),
-              proj.latitude = latitude*(pi/180),
-              proj.latitude = 2*3958.8*sin(proj.latitude))
-ggplot(Mexhuman, aes(x=proj.longitude,y=proj.latitude))+
-  geom_point(aes(color = Region))+
-  theme_bw()+
-  xlab("Longitude (radians)")+ylab("Latitude (radians)")+
-  ggtitle("Indigenous Mexican human location, Gall-Peters projection")
+plot_human_pca(Mexhuman, "Mexican Indigenous human PCA")
 
 ### Maize full data ###
+# function for plotting maize pca
+plot_maize_pca<-function(m_data, title, pve_df){
+  plt<-ggplot(m_data, aes(x=PC1, y=PC2))+
+  geom_point(aes(color = countries_country_name))+
+  coord_equal()+
+  theme_bw()+
+  xlab(paste0("PC1 (", signif(pve_df$pve[1],3),"%)"))+
+  ylab(paste0("PC2 (", signif(pve_df$pve[2],3),"%)"))+
+  ggtitle(title)
+}
 #plot pca
-ggplot(maize_pca, aes(x=PC1, y=PC2))+
-  geom_point()+
-  coord_equal()+
-  theme_bw()+
-  xlab(paste0("PC1 (", signif(pve$pve[1],3),"%)"))+
-  ylab(paste0("PC2 (", signif(pve$pve[2],3),"%)"))+
-  ggtitle("Maize PCA")
-
-ggplot(maize_pca, aes(x=PC1, y=PC2))+
-  geom_point()+
-  coord_equal()+
-  theme_bw()+
-  xlab(paste0("PC1 (", signif(pve$pve[1],3),"%)"))+
-  ylab(paste0("PC2 (", signif(pve$pve[2],3),"%)"))+
-  ggtitle("Maize PCA (after mean centering)")
-
 ggplot(maize, aes(x=PC1, y=PC2))+
   geom_point(aes(color = countries_country_name))+
   coord_equal()+
   theme_bw()+
   xlab(paste0("PC1 (", signif(pve$pve[1],3),"%)"))+
   ylab(paste0("PC2 (", signif(pve$pve[2],3),"%)"))+
-  ggtitle("Maize PCA (after mean centering)")
+  ggtitle("Maize PCA")
+#test function
+plot_maize_pca(maize, "Maize PCA", pve)
 
 ### Maize Mexican only ###
-ggplot(Mexmaize_pca, aes(x=PC1, y=PC2))+
-  geom_point()+
-  coord_equal()+
-  theme_bw()+
-  xlab(paste0("PC1 (", signif(Mexpve$pve[1],3),"%)"))+
-  ylab(paste0("PC2 (", signif(Mexpve$pve[2],3),"%)"))+
-  ggtitle("Mexican Maize PCA (after mean centering)")
+plot_maize_pca(Mexmaize_pca, "Mexican Maize PCA", Mexpve)
 
-maize_noOutliers%>% 
- ggplot(aes(x=rotated_PC1, y=rotated_PC2, color = Regions))+ 
-  geom_point(aes(x=locations_longitude,y=locations_latitude), shape = 3, color = "black")+
-  geom_point(alpha = 0.5)+
-  theme_bw()+
-  xlab("Longitude")+ylab("Latitude")+
-  scale_color_manual(name = "Regions by Country",
-                     values = c("AndeanHighland"="#ff5b58","Amazonia"="#538fff","CentralSouthAmerica"="#ecc500","ChacoAmerindian"="#28d2ab","Mexico"="#2d1a77",
-                                "Patagonia"="#ec00c5","Mesoamerica"="#a7c957","Caribbean"="#802d2f"),
-                     labels = c("AndeanHighland"="Andean Highland","Amazonia"="Amazonia","CentralSouthAmerica"="Central South America","ChacoAmerindian"="Chaco Amerindian","Mexico"="Mexico",
-                                "Patagonia"="Patagonia","Mesoamerica"="Mesoamerica","Caribbean"="Caribbean"))+
-  guides(color = guide_legend(override.aes = list(alpha = 1)))
-ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/maize_PConGeography.png", device = "png",dpi=300,
-       height = 6, width=7.5)
 
 #### Centroid 21 km pairings ####
 #plot the maize (centroid) PCs
@@ -388,6 +341,43 @@ maize<-add_column(maize, transformed_PC1 = (maize_procrustes.proj$scale*t((maize
 ggplot(maize, aes(x=transformed_PC1,y=transformed_PC2))+
   geom_point(aes(color = countries_country_name))+
   theme_bw()
+
+### Full maize set without the outliers vs. geography ###
+
+maize.protest<-protest(Y = select(maize_noOutliers, c("PC1","PC2")),
+                       X = select(maize_noOutliers, c("locations_longitude","locations_latitude")))
+
+maize_noOutliers<-maize_noOutliers %>% add_column(as.data.frame(maize.protest$Yrot))
+colnames(maize_noOutliers)[67:68]<-c("rotated_PC1","rotated_PC2")
+maize_noOutliers<-maize_noOutliers %>%mutate(rotated_PC1 = rotated_PC1+maize.protest$translation[,1],
+                                             rotated_PC2 = rotated_PC2+maize.protest$translation[,2])
+maize_noOutliers<-mutate(maize_noOutliers, Regions = case_when(countries_country_name %in% c("BOLIVIA","CHILE","PERU") ~ "AndeanHighland",
+                                             countries_country_name %in% c("BRAZIL") ~ "Amazonia",
+                                             countries_country_name %in% c("COLOMBIA","ECUADOR","FRENCH GUIANA","HONDURAS","SURINAME","VENEZUELA") ~ "CentralSouthAmerica",
+                                             countries_country_name %in% c("PARAGUAY","URUGUAY") ~ "ChacoAmerindian",
+                                             countries_country_name %in% c("MEXICO") ~ "Mexico",
+                                             countries_country_name %in% c("ARGENTINA") ~ "Patagonia",
+                                             countries_country_name %in% c("COSTA RICA","EL SALVADOR","GUATEMALA",
+                                                                           "NICARAGUA","PANAMA") ~ "Mesoamerica",
+                                             countries_country_name %in% c("ANTIGUA AND BARBUDA","BARBADOS","CUBA",
+                                                                           "DOMINICAN REPUBLIC","GRENADA","GUADELOUPE",
+                                                                           "HAITI","MARTINIQUE","PUERTO RICO","SAINT VINCENT AND THE GRENADINES",
+                                                                           "TRINIDAD AND TOBAGO","VIRGIN ISLANDS (BRITISH)","VIRGIN ISLANDS (U.S.)") ~ "Caribbean"))
+
+maize_noOutliers%>% 
+ ggplot(aes(x=rotated_PC1, y=rotated_PC2, color = Regions))+ 
+  geom_point(aes(x=locations_longitude,y=locations_latitude), shape = 3, color = "black")+
+  geom_point(alpha = 0.5)+
+  theme_bw()+
+  xlab("Longitude")+ylab("Latitude")+
+  scale_color_manual(name = "Regions by Country",
+                     values = c("AndeanHighland"="#ff5b58","Amazonia"="#538fff","CentralSouthAmerica"="#ecc500","ChacoAmerindian"="#28d2ab","Mexico"="#2d1a77",
+                                "Patagonia"="#ec00c5","Mesoamerica"="#a7c957","Caribbean"="#802d2f"),
+                     labels = c("AndeanHighland"="Andean Highland","Amazonia"="Amazonia","CentralSouthAmerica"="Central South America","ChacoAmerindian"="Chaco Amerindian","Mexico"="Mexico",
+                                "Patagonia"="Patagonia","Mesoamerica"="Mesoamerica","Caribbean"="Caribbean"))+
+  guides(color = guide_legend(override.aes = list(alpha = 1)))
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/maize_PConGeography.png", device = "png",dpi=300,
+       height = 6, width=7.5)
 
 ### Maize vs. geography mexico only ###
 Mexmaize_procrustes<-procrustes(Y = select(Mexmaize, c("PC1","PC2")),
