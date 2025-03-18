@@ -55,6 +55,8 @@ human_noOutliers<-filter(human_noOutliers, !sample_name %in% c("GA006377","GA006
                                                                "GA004778","GA006357","GA004764","GA004803","GA006340","GA004774",
                                                                'GA006557',"GA004768","GA006380","GA006447","GA004798","GA006553"))
 
+
+
 #plot location
 ggplot(human_noOutliers, aes(x=longitude,y=latitude))+
   geom_point()+
@@ -202,6 +204,7 @@ ggplot(human, aes(x=proj.longitude,y=proj.latitude))+
   xlab("Longitude (radians)")+ylab("Latitude (radians)")+
   ggtitle("Indigenous human location, Gall-Peters projection")
 
+
 ggplot(human_noOutliers, aes(x=longitude, y=latitude))+
   geom_point(aes(color = Region), shape = 3)+
   theme_bw()+theme(text = element_text(size=20))+
@@ -235,6 +238,7 @@ ggplot(human_noOutliers, aes(x=PC_1, y=PC_2))+
 #guides(color = guide_legend(override.aes = list(alpha = 1)))
 ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/HumanSamples_byRegion_PCA.png",
        device = "png", height = 5.1, width = 5.4, dpi = 300)
+
 
 ### Human Mexican only ###
 #Mexican subset of humans
@@ -687,6 +691,154 @@ ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/maize_admixtureRemoved.p
        height = 4.5, width = 7.5)
 
 plot(maize_admixRemoved.protest)
+
+#### 3. Mexicana admixture removal from Mexican maize ####
+
+##DRAFTED, NEEDS VALIDATION##
+#since we're using mean genotypes
+#G is the genotype observed
+#P_mz is the maize allele-frequency
+#P_mx is the mexicana allele-frequency
+#alpha = genome wide admixture proprotion
+#G' is the new genotype with the mexicana ancestry removed
+# G' = (G - 2*P_mx*alpha)/(1-alpha)
+
+
+#### 4. Pairing maize and human PCs ####
+
+#### 5. Procrustes ####
+
+### Human vs. geography- full set minus outliers ###
+
+#compute procrustes using vegan 2.6-4
+human_procrustes<-procrustes(Y = select(human_noOutliers, c("PC_1","PC_2")),
+                             X = select(human_noOutliers, c("longitude","latitude"))
+                             )
+summary(human_procrustes)
+plot(human_procrustes)
+plot(human_procrustes, to.target = F, ar.col = NA)
+#test the significance of two configurations
+protest(X = select(human_noOutliers, c("PC_1","PC_2")),
+        Y = select(human_noOutliers, c("longitude","latitude")))
+
+#human custom plots:
+#numbers specified here should be number of samples
+human.translation<-matrix(rep(human_procrustes.proj$translation,813),nrow=813,ncol=2,byrow =TRUE) 
+
+human_noOutliers<-add_column(human_noOutliers, 
+                             transformed_PC1 = (human_procrustes.proj$scale*t((human_procrustes.proj$rotation) %*% t(as.matrix(human_noOutliers[,c("PC_1","PC_2")])))+human.translation)[,1],
+           transformed_PC2 = (human_procrustes.proj$scale*t((human_procrustes.proj$rotation) %*% t(as.matrix(human_noOutliers[,c("PC_1","PC_2")])))+human.translation)[,2])
+ggplot(human_noOutliers, aes(x=transformed_PC1,y=transformed_PC2))+
+  geom_point(aes(color=Region))+
+  theme_bw()
+
+human_procrustes.proj$Yrot %>% cbind(.,human_noOutliers$Region) %>% as.data.frame() %>% 
+  ggplot(aes(x=as.numeric(V1), y=as.numeric(V2), color = V3))+ 
+  geom_point()
+
+human_noOutliers<-human_noOutliers %>% add_column(as.data.frame(human_procrustes$Yrot))
+colnames(human_noOutliers)[24:25]<-c("rotated_PC1","rotated_PC2")
+human_noOutliers<-human_noOutliers %>%mutate(rotated_PC1 = rotated_PC1+human_procrustes$translation[,1],
+                                             rotated_PC2 = rotated_PC2+human_procrustes$translation[,2])
+human_noOutliers%>% 
+  ggplot(aes(x=rotated_PC1, y=rotated_PC2, color = Region))+ 
+  geom_point(alpha = 0.5)+
+  geom_point(aes(x=longitude,y=latitude), shape = 3, color = "black")+
+  theme_bw()+
+  xlab("Longitude")+ylab("Latitude")+
+  scale_color_manual(#values = c("#CA1551","#FB4D3D","#F38939","#EAC435",
+                     #           "#386641","#62747D","#1C949D","#03CEA4","#473bf0","#6A994E","#A7C957",
+                     #           "#7F3773"),
+    values = c("#538fff","#ff5b58","#ecc500","#28d2ab","#fca207","#cb4d8e","#268189","#2d1a77",
+               "#b100ea","#386651","#a7c957","#ec00c5"),
+                     name = "Region", labels = c("Amazonia", "Andean Highland","Central South America",
+                                                 "Chaco Amerindian", "Mexico, Center","Mexico, Gulf", 
+                                                 "Mexico, Mayan","Mexico, North of Mesoamerica","Mexico, North",
+                                                 "Mexico, Oaxaca","Mexico, West","Patagonia"))+
+  guides(color = guide_legend(override.aes = list(alpha = 1)))
+ggsave('/group/jrigrp11/snodgras_maizePopulations/Plots/human_PConGeography.woAdmixedHumans.png', device = "png",dpi = 300,
+       height = 6, width = 7.5)
+
+### Human Mexican only ###
+Mexhuman_procrustes.proj<-procrustes(Y = select(Mexhuman, c("PC_1","PC_2")),
+                                  X = select(Mexhuman, c("proj.longitude","proj.latitude"))
+)
+plot(Mexhuman_procrustes.proj)
+protest(Y = select(Mexhuman, c("PC_1","PC_2")),
+           X = select(Mexhuman, c("proj.longitude","proj.latitude")))
+
+### Maize full data vs. geography ###
+#compute procrustes using vegan 2.6-4
+maize_procrustes<-procrustes(X = select(maize_noOutliers, c("PC1","PC2")),
+                             Y = select(maize_noOutliers, c("locations_longitude","locations_latitude"))
+)
+summary(maize_procrustes)
+plot(maize_procrustes)
+plot(maize_procrustes, to.target = F, ar.col = NA)
+#test the significance of two configurations
+protest(X = select(maize, c("PC1","PC2")),
+        Y = select(maize, c("locations_longitude","locations_latitude")))
+my.translation<-matrix(rep(maize_procrustes.proj$translation,2899),nrow=2899,ncol=2,byrow =TRUE) 
+
+plot(maize_procrustes.proj$scale*t((maize_procrustes.proj$rotation) %*% t(as.matrix(maize[,c("PC1","PC2")])))+my.translation)
+
+maize<-add_column(maize, transformed_PC1 = (maize_procrustes.proj$scale*t((maize_procrustes.proj$rotation) %*% t(as.matrix(maize[,c("PC1","PC2")])))+my.translation)[,1],
+                  transformed_PC2 = (maize_procrustes.proj$scale*t((maize_procrustes.proj$rotation) %*% t(as.matrix(maize[,c("PC1","PC2")])))+my.translation)[,2])
+ggplot(maize, aes(x=transformed_PC1,y=transformed_PC2))+
+  geom_point(aes(color = countries_country_name))+
+  theme_bw()
+
+### Full maize set without the outliers vs. geography ###
+
+maize.protest<-protest(Y = select(maize_noOutliers, c("PC1","PC2")),
+                       X = select(maize_noOutliers, c("locations_longitude","locations_latitude")))
+
+maize_noOutliers<-maize_noOutliers %>% add_column(as.data.frame(maize.protest$Yrot))
+colnames(maize_noOutliers)[67:68]<-c("rotated_PC1","rotated_PC2")
+maize_noOutliers<-maize_noOutliers %>%mutate(rotated_PC1 = rotated_PC1+maize.protest$translation[,1],
+                                             rotated_PC2 = rotated_PC2+maize.protest$translation[,2])
+maize_noOutliers<-mutate(maize_noOutliers, Regions = case_when(countries_country_name %in% c("BOLIVIA","CHILE","PERU") ~ "AndeanHighland",
+                                             countries_country_name %in% c("BRAZIL") ~ "Amazonia",
+                                             countries_country_name %in% c("COLOMBIA","ECUADOR","FRENCH GUIANA","HONDURAS","SURINAME","VENEZUELA") ~ "CentralSouthAmerica",
+                                             countries_country_name %in% c("PARAGUAY","URUGUAY") ~ "ChacoAmerindian",
+                                             countries_country_name %in% c("MEXICO") ~ "Mexico",
+                                             countries_country_name %in% c("ARGENTINA") ~ "Patagonia",
+                                             countries_country_name %in% c("COSTA RICA","EL SALVADOR","GUATEMALA",
+                                                                           "NICARAGUA","PANAMA") ~ "Mesoamerica",
+                                             countries_country_name %in% c("ANTIGUA AND BARBUDA","BARBADOS","CUBA",
+                                                                           "DOMINICAN REPUBLIC","GRENADA","GUADELOUPE",
+                                                                           "HAITI","MARTINIQUE","PUERTO RICO","SAINT VINCENT AND THE GRENADINES",
+                                                                           "TRINIDAD AND TOBAGO","VIRGIN ISLANDS (BRITISH)","VIRGIN ISLANDS (U.S.)") ~ "Caribbean"))
+
+maize_noOutliers%>% 
+ ggplot(aes(x=rotated_PC1, y=rotated_PC2, color = Regions))+ 
+  geom_point(aes(x=locations_longitude,y=locations_latitude), shape = 3, color = "black")+
+  geom_point(alpha = 0.5)+
+  theme_bw()+
+  xlab("Longitude")+ylab("Latitude")+
+  scale_color_manual(name = "Regions by Country",
+                     values = c("AndeanHighland"="#ff5b58","Amazonia"="#538fff","CentralSouthAmerica"="#ecc500","ChacoAmerindian"="#28d2ab","Mexico"="#2d1a77",
+                                "Patagonia"="#ec00c5","Mesoamerica"="#a7c957","Caribbean"="#802d2f"),
+                     labels = c("AndeanHighland"="Andean Highland","Amazonia"="Amazonia","CentralSouthAmerica"="Central South America","ChacoAmerindian"="Chaco Amerindian","Mexico"="Mexico",
+                                "Patagonia"="Patagonia","Mesoamerica"="Mesoamerica","Caribbean"="Caribbean"))+
+  guides(color = guide_legend(override.aes = list(alpha = 1)))
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/maize_PConGeography.png", device = "png",dpi=300,
+       height = 6, width=7.5)
+
+### Maize vs. geography mexico only ###
+Mexmaize_procrustes<-procrustes(Y = select(Mexmaize, c("PC1","PC2")),
+                                  X = select(Mexmaize, c("longitude","latitude"))
+)
+plot(Mexmaize_procrustes)
+
+Mexmaize.protest<-protest(Y = select(Mexmaize, c("PC1","PC2")),
+                       X = select(Mexmaize, c("longitude","latitude")))
+
+ggplot(Mexmaize, aes(x=PC1, y=PC2))+
+  geom_point(aes(color = locations_elevation, alpha = longitude))+
+  theme_bw()+
+  scale_color_gradient(low="orange",high = "blue")+
+  ggtitle("Mexican maize PCs by elevation")
 
 ####FOR SOME REASON THE SCALE IS WAY OFF FOR THE MAIZE PCS COMPARED TO HUMAN PCS####
 #procrustes of the pair to get the maize (centroid) PCs onto the human PC coordinates
