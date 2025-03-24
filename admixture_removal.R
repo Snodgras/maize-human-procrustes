@@ -1,93 +1,107 @@
 #!/usr/bin/env Rscript
 
 library(tidyverse)
+library(vroom)
+library("janitor")
 
-####Test using random data of right type, but no basis in biology####
-#pilot_vcf<-tibble(SNP_ID = c(paste0("SNP",1:50)),
-#                  Mex_AF = runif(n=50,min=0,max=1),
-#                  IND_1 = round(runif(n=50, min=0,max=2)),
-#                  IND_2 = round(runif(n=50, min=0,max=2)),
-#                  IND_3 = round(runif(n=50, min=0,max=2)),
-#                  IND_4 = round(runif(n=50, min=0,max=2)),
-#                  IND_5 = round(runif(n=50, min=0,max=2)),
-#                  IND_6 = round(runif(n=50, min=0,max=2)),
-#                  IND_7 = round(runif(n=50, min=0,max=2)),
-#                  IND_8 = round(runif(n=50, min=0,max=2)),
-#                  IND_9 = round(runif(n=50, min=0,max=2)),
-#                  IND_10 = round(runif(n=50, min=0,max=2)))
-#pilot_admix<-tibble(Individual = c("IND_1","IND_2","IND_3","IND_4","IND_5","IND_6","IND_7","IND_8","IND_9","IND_10"),
-#                    alpha = runif(n=10,min=0,max=1))
-#
-#(pilot_vcf[,3] - 2*pilot_vcf[,2]*pull(pilot_admix[which(pilot_admix[,1] == "IND_1"),2]))/(1-pull(pilot_admix[which(pilot_admix[,1] == "IND_1"),2]))
-##test first entry:
-#(1 - 2*0.172*0.00514)/(1-0.00514)
-#
-#pilot_vcf_transformed<-select(pilot_vcf, SNP_ID)
-#for(i in pilot_admix$Individual){
-#  alpha<-pilot_admix %>% filter(Individual == i) %>% select(alpha) %>% pull()
-#  pilot_vcf_transformed<-add_column(pilot_vcf_transformed, !!i := pull((pilot_vcf[,i] - 2*pilot_vcf[,2]*alpha)/(1-alpha)))
-#}
-#remove(ls(pattern = "pilot"))
+impute_mean = function(X) {
+  X_mean = colMeans(X,na.rm=T)
+  X[is.na(X)] = X_mean[rep(1:ncol(X),colSums(is.na(X)))]
+  X
+}
 
-#### Test on a subset of the real data ####
-#pilot_vcf<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/admix_removal/test.vcf")
-#pilot_admix<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/admix_removal/admixProp.GBSsamples.txt", col_names = c("ind","admix"))
-
-### split out mex AF from other INFO fields
-#pilot_vcf<-mutate(pilot_vcf, Mex_AF = str_split(string = INFO, pattern = ";", simplify = T)[,1] %>%
-#                            str_remove_all(.,"AF=")
-#         )
-### Convert genotypes to numeric
-#pilot_vcf<-lapply(pilot_vcf, function(x) gsub("0/0","0",x))
-#pilot_vcf<-lapply(pilot_vcf, function(x) gsub("0/1|1/0","1",x))
-#pilot_vcf<-lapply(pilot_vcf, function(x) gsub("1/1","2",x))
-#pilot_vcf<-lapply(pilot_vcf, function(x) gsub("./.",NA,x))
-#
-#pilot_vcf<-as_tibble(pilot_vcf) %>% mutate_at(vars(matches("SEEDGWAS")), as.numeric) 
-#pilot_vcf<-mutate_at(pilot_vcf, vars("Mex_AF"), as.numeric)
-### attempt the transformation
-#
-#### create the id variables
-#pilot_transformed<-select(pilot_vcf, c("#CHROM","POS","ID","REF","ALT","Mex_AF"))
-#### go through each individual (genotype column) and apply transformation
-#for(i in pilot_admix$ind){
-#  alpha<-pilot_admix %>% filter(ind == i) %>% select(admix) %>% pull()
-#  pilot_transformed<-add_column(pilot_transformed, !!i := pull((pilot_vcf[,i] - 2*pilot_vcf[,"Mex_AF"]*alpha)/(1-alpha)))
-#}
-#
-#### double checking that the transformation makes sense
-#pca<- select(pilot_transformed, contains("SEEDGWAS")) %>% na.omit() %>% as.matrix() %>% prcomp(center = T)
-#pilot_pcs<-pca$rotation[,1:2] 
-#ggplot(pilot_pcs, aes(x=pilot_pcs[,1],y=pilot_pcs[,2]))+geom_point()+xlab("PC1")+ylab("PC2")
-#summary(pilot_transformed[,1:20])
-#pilot_transformed %>% summarize(across(contains("SEEDGWAS"), ~ mean(.x, na.rm =T))) %>% pivot_longer(cols = everything(),names_to = "ind",values_to = "mean")
-#p<-pilot_transformed %>% summarize(across(contains("SEEDGWAS"), ~ min(.x, na.rm =T))) %>% 
-#  pivot_longer(cols = everything(),names_to = "ind",values_to = "min") %>% 
-#  ggplot()+geom_density(aes(x=min),color="dodgerblue", fill="dodgerblue", alpha = 0.75)
-#p<-p+ geom_density( data = pilot_transformed %>% summarize(across(contains("SEEDGWAS"), ~ max(.x, na.rm =T))) %>% 
-#  pivot_longer(cols = everything(),names_to = "ind",values_to = "max"),
-#  aes(x=max), color = "red", fill="red", alpha =0.75)
-#p+theme_bw()+xlab("Min and Max Genotype")+ylab("Density of individuals (4845)")
-
-#####what about an individual snp
-#snp_orig<-pilot_vcf[2,] %>% select(starts_with("SEEDGWAS"))
-#snp_trans<-pilot_transformed %>% filter(ID == pull(pilot_vcf[2,3])) %>% select(starts_with("SEEDGWAS"))
-#
-#snp_orig<-snp_orig %>% pivot_longer(cols = everything(), values_to = "Orig_Genotype", names_to = "Ind")
-#snp_trans<-snp_trans %>% pivot_longer(cols = everything(), values_to = "Transformed_Genotype", names_to = "Ind")
-
-#inner_join(x=snp_orig, y=snp_trans, by="Ind") %>%
-#  pivot_longer(cols = ends_with("Genotype"), names_to = "State", values_to = "Genotype") %>% 
-#  ggplot(aes(x=State, y=Genotype, group = Ind))+
-#  geom_point(aes(color = State))+
-#  geom_line(color = "black", alpha = 0.1)+
-#  theme_bw()+ggtitle("Single SNP genotype transformation")+guides(color = "none")
-
-#remove(list = c("pilot_admix","pilot_pcs","pilot_transformed","pilot_vcf", "pca","p","snp_orig","snp_trans"))
-
-####Final draft####
-vcf<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/admix_removal/headerless_MAF0.01_SubsetZeaGBS_withMexAF.vcf")
 admix<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/admix_removal/admixProp.GBSsamples.txt", col_names = c("ind","admix"))
+
+####Test on subset####
+#Coded up by Jeff Ross-Ibarra
+
+#get vcf, make numeric, add allele freq column, transpose
+untransformed<-vroom("/group/jrigrp11/snodgras_maizePopulations/admix_removal/test/jri_20KSNPs.numeric.tsv")
+undata<-mutate(untransformed, Mex_AF = str_split(string = INFO, pattern = ";", simplify = T)[,1] %>%
+              str_remove_all(.,"AF=")) %>% filter(Mex_AF != ".") %>% 
+  mutate(Mex_AF=as.numeric(Mex_AF)) %>%
+  select(Mex_AF, ID, starts_with("SEEDGWAS"))
+
+tundata.names<-t(undata[,2:ncol(undata)])  %>% row_to_names(row_number = 1)
+
+names <- rownames(tundata.names)
+rownames(tundata.names) <- NULL
+tundata.id.names <- data.frame(cbind(names,tundata.names))
+colnames(tundata.id.names)[1]="name"
+tundata.admix.id.names<-merge(tundata.id.names,admix,by.x="name",by.y="ind" )
+
+
+tundata.id.names <- mutate(tundata.admix.id.names,name=str_split(name, "\\.",simplify = T)[,1])
+
+dim(tundata.id.names) #check
+
+# get metadata
+meta<-vroom("/group/jrigrp11/snodgras_maizePopulations/clean_seedspassport.csv")
+
+#merge untransformed, meta
+mtundata<-merge(tundata.id.names,meta,by.x="name",by.y="Sample_ID_of_DNA_from_single_plants_used_in_GWAS")
+forpca.mtundata=select(mtundata,2:ncol(tundata.id.names)) %>% select(-admix)
+forpca.mtundata <- forpca.mtundata %>% mutate_if(is.character, as.numeric)
+
+
+#PCA
+#impute NA with means
+tforpca.mtundata=impute_mean(as.matrix(forpca.mtundata))
+
+#PCA
+pca.mtundata <- prcomp(tforpca.mtundata,center=T,scale=F)
+summary.pca<-summary(pca.mtundata)
+summary.pca$importance[2,1:10] # % variance of first 10 PCs
+
+#get eigenvecs
+eigens<-pca.mtundata$x
+new_eigens<-data.frame(cbind(eigens,mtundata$locations_elevation))
+
+#plot
+ggplot(new_eigens,aes(x=PC1,y=PC2,color=V2910))+geom_point(alpha=0.1)+
+  xlab(paste("PC1 ",summary.pca$importance[2,1]*100, "%"))+
+  ylab(paste("PC2 ",summary.pca$importance[2,2]*100, "%"))+
+  theme_minimal()
+
+cor(new_eigens$PC1,new_eigens$V2910)
+cor(new_eigens$PC1,mtundata$locations_elevation)
+cor(new_eigens$PC1,mtundata$admix)
+
+summary(lm(new_eigens$PC1~new_eigens$V2910))
+summary(lm(new_eigens$PC1~mtundata$admix))
+
+#Runcie transform
+genos<-as.matrix(forpca.mtundata)
+genos_imputed<-impute_mean(genos)
+n = nrow(genos_imputed)
+a = cbind(1,mtundata$admix)
+P = diag(1,n) - a %*% solve(crossprod(a),t(a))
+X_resid = P %*% genos_imputed
+
+Xpca<-prcomp(X_resid,center=T,scale=F)
+
+summary.Xpca<-summary(Xpca)
+summary.Xpca$importance[2,1:10] # % variance of first 10 PCs
+
+#get eigenvecs
+Xeigens<-Xpca$x
+
+#plot
+ggplot(Xeigens,aes(x=PC1,y=PC2,color=mtundata$admix))+geom_point(alpha=0.2)+
+  xlab(paste("PC1 ",summary.Xpca$importance[2,1]*100, "%"))+
+  ylab(paste("PC2 ",summary.Xpca$importance[2,2]*100, "%"))+
+  theme_minimal()
+
+cor(Xeigens[,1],Xeigens[,2])
+cor(Xeigens[,1:10],mtundata$location_elevation)
+
+summary(lm(new_eigens$PC1~new_eigens$V2910))
+summary(lm(new_eigens$PC1~mtundata$admix))
+
+####Run on full####
+#merge of Sam's code with Jeff's
+
+vcf<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/admix_removal/headerless_MAF0.01_SubsetZeaGBS_withMexAF.vcf")
 
 ### split out mex AF from other INFO fields
 vcf<-mutate(vcf, Mex_AF = str_split(string = INFO, pattern = ";", simplify = T)[,1] %>%
@@ -101,18 +115,64 @@ vcf<-lapply(vcf, function(x) gsub("./.",NA,x))
 
 vcf<-as_tibble(vcf) %>% mutate_at(vars(matches("SEEDGWAS")), as.numeric) 
 vcf<-mutate_at(vcf, vars("Mex_AF"), as.numeric)
-## attempt the transformation
 
-### create the id variables
-transformed<-select(vcf, c("#CHROM","POS","ID","REF","ALT","Mex_AF"))
-### go through each individual (genotype column) and apply transformation
-for(i in admix$ind){
-  alpha<-admix %>% filter(ind == i) %>% select(admix) %>% pull()
-  transformed<-add_column(transformed, !!i := pull((vcf[,i] - 2*vcf[,"Mex_AF"]*alpha)/(1-alpha)))
-}
+#transpose
+undata<-select(vcf, Mex_AF, ID, starts_with("SEEDGWAS")) #non-transformed/original data
 
-#compare to manual calculation
-#gprime = function(g,pmex,alpha){(g-alpha*2*pmex)/(1-alpha)}
+tundata.names<-t(undata[,2:ncol(undata)])  %>% row_to_names(row_number = 1)
+
+names <- rownames(tundata.names)
+rownames(tundata.names) <- NULL
+tundata.id.names <- data.frame(cbind(names,tundata.names))
+colnames(tundata.id.names)[1]="name"
+tundata.admix.id.names<-merge(tundata.id.names,admix,by.x="name",by.y="ind" )
 
 
-write_tsv(transformed, file = "/group/jrigrp11/snodgras_maizePopulations/admix_removal/transformed_headerless_MAF0.01_SubsetZeaGBS_withMexAF.tsv")
+tundata.id.names <- mutate(tundata.admix.id.names,name=str_split(name, "\\.",simplify = T)[,1])
+
+dim(tundata.id.names) #check
+
+# add in the metadata to filter out samples that don't have geographical information
+
+meta<-vroom("/group/jrigrp11/snodgras_maizePopulations/clean_seedspassport.csv")
+
+#merge untransformed, meta
+mtundata<-merge(tundata.id.names,meta,by.x="name",by.y="Sample_ID_of_DNA_from_single_plants_used_in_GWAS")
+forpca.mtundata=select(mtundata,2:ncol(tundata.id.names)) %>% select(-admix)
+forpca.mtundata <- forpca.mtundata %>% mutate_if(is.character, as.numeric)
+
+#PCA
+#impute NA with means
+tforpca.mtundata=impute_mean(as.matrix(forpca.mtundata))
+
+#PCA
+pca.mtundata <- prcomp(tforpca.mtundata,center=T,scale=F)
+summary.pca<-summary(pca.mtundata)
+
+#write the pcs for the nontransformed data
+pca.mtundata$x %>% rownames_to_column() %>% write_tsv("/group/jrigrp11/snodgras_maizePopulations/admix_removal/non_transformed_MAF0.01.pca")
+summary.pca$importance[2,] %>% enframe() %>% write_tsv("/group/jrigrp11/snodgras_maizePopulations/admix_removal/non_transformed_MAF.01.eigens")
+
+#transform
+#Dan Runcie consulted on math by Jeff
+#goal is to regress genotypes on admixture and then use the residuals as input for the PCA
+
+genos<-as.matrix(forpca.mtundata)
+genos_imputed<-impute_mean(genos)
+n = nrow(genos_imputed)
+a = cbind(1,mtundata$admix)
+P = diag(1,n) - a %*% solve(crossprod(a),t(a))
+X_resid = P %*% genos_imputed
+
+Xpca<-prcomp(X_resid,center=T,scale=F)
+
+summary.Xpca<-summary(Xpca)
+
+#check correlation with admixture
+cor(Xpca$x[,1:10], mtundata$admix)
+cor(Xpca$x[,1:10], mtundata$location_elevation)
+
+#write transformed PCs 
+ 
+Xpca$x %>% rownames_to_column() %>% write_tsv("/group/jrigrp11/snodgras_maizePopulations/admix_removal/transformed_MAF0.01.pca")
+summary.Xpca$importance[2,] %>% enframe() %>% write_tsv("/group/jrigrp11/snodgras_maizePopulations/admix_removal/transformed_MAF0.01.eigens")
