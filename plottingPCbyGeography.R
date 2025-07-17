@@ -152,6 +152,19 @@ ggplot(ind_human_maize_20km_buffer, aes(x=PC1, y=PC2))+
   ylab(paste0("PC2 (", signif(ind_human_maize_20km_buffer.eigenval$PVE[2]*100,3),"%)"))+
   ggtitle("21km radius maize PCA")
 
+transformed_21km_maize.pca<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/21km_transformed_LDprune_MAF0.01.pca")
+transformed_21km_maize.eigenval<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/21km_transformed_LDprune_MAF0.01.eigens")
+colnames(transformed_21km_maize.eigenval)<-c("PC","PVE")
+transformed_21km_maize<-right_join(x=selected_passport_ids, y=transformed_21km_maize.pca, by=c("gwas_sample_id"="ind_id")) %>% 
+  left_join(x=., y=maize_meta, by=c("gwas_sample_id"="Sample_ID_of_DNA_from_single_plants_used_in_GWAS"))
+
+ggplot(transformed_21km_maize, aes(x=PC1, y=PC2))+
+  geom_point(aes(color=locations_elevation))+theme_bw()+
+  scale_color_viridis_c(name="Elevation")+
+  xlab(paste0("PC1 (", signif(transformed_21km_maize.eigenval$PVE[1]*100,3),"%)"))+
+  ylab(paste0("PC2 (", signif(transformed_21km_maize.eigenval$PVE[2]*100,3),"%)"))+
+  ggtitle("Transformed 21km radius maize PCA")
+
 #Goal is to find the centroid of PCs for each set of maize samples for a given human sample
 centroidPCs_ind_human<-ind_human_maize_20km_buffer %>% 
   group_by(sample_id.human,Region.human,Ethnicity.human,latitude.human,longitude.human) %>% 
@@ -161,7 +174,7 @@ colnames(centroidPCs_ind_human)<-c("sample_name","Region","Ethnicity","latitude"
                                    paste0("PC",1:422,".maize"), "mean_elevation.maize")
 #add in the human PCs, specifically the Mexican only PCs
 centroidPCs_ind_human<-inner_join(centroidPCs_ind_human, Mexhuman, by=("sample_name"))
-
+centroidPCs_ind_human_Americas<-inner_join(centroidPCs_ind_human, human, by = "sample_name")
 #### 2. PCA calculations and figure quality plots ####
 
 ### Human data full ### 
@@ -210,7 +223,7 @@ ggplot(Mexhuman, aes(x=PC_1, y=PC_2))+
   geom_point(aes(color = Region), alpha = 0.6)+
   theme_bw()+theme(text = element_text(size=20))+
   xlab("PC 1")+ylab("PC 2")+
-  ggtitle("Human PCA")+
+  ggtitle("Mexican only, Human PCA")+
   scale_color_manual(
     values = c("#fca207","#cb4d8e","#268189","#2d1a77",
                "#b100ea","#386651","#a7c957"),
@@ -514,6 +527,24 @@ human_procrustes_rotation<-human_procrustes$rotation
 
 #slope = (y2-y1)/(x2-x1)
 
+#### RETURN HERE ####
+ggplot(data=maize_admixRemoved,aes(y=locations_latitude,x=locations_longitude))+
+  geom_point()+
+  geom_point(data=as.data.frame(maize_admixRemoved.procrustes$Yrot), 
+             aes(x=0.6953409*V1-85,y=0.6953409*V2+9), color = "blue")
+
+ggplot(human_noOutliers, aes(x=rotated_PC1, y=rotated_PC2, color = Region))+
+  geom_point(alpha = 0.5)+
+  scale_color_manual(
+    values = c("#538fff","#ff5b58","#ecc500","#28d2ab","#fca207","#cb4d8e","#268189","#2d1a77",
+               "#b100ea","#386651","#a7c957","#ec00c5"),
+    name = "Region", labels = c("Amazonia", "Andean Highland","Central South America",
+                                "Chaco Amerindian", "Mexico, Center","Mexico, Gulf", 
+                                "Mexico, Mayan","Mexico, \nNorth of Mesoamerica","Mexico, North",
+                                "Mexico, Oaxaca","Mexico, West","Patagonia"))+
+  theme_bw()+xlab("")+ylab("")+
+  theme(axis.text.x = element_blank(),axis.text.y = element_blank(),axis.ticks = element_blank())
+
 rotated_axes_slopes<-function(rot_mat){
   #create origin axes
   x_point.1 = c(-1,0)
@@ -543,7 +574,7 @@ human_rot_PCA<-ggplot()+
   #geom_segment(data = as.data.frame(human_rot_axes*human_procrustes$scale+human_procrustes$translation) %>% mutate(axis_name = c("PC1.rot","PC2.rot")),
   #             aes(x=V1,y=V2, xend=V3, yend=V4, color = axis_name))+
   geom_point(data = human_noOutliers, aes(x=rotated_PC1, y=rotated_PC2, color = Region)) 
-ggsave(plot = human_rot_PCA, "/group/jrigrp11/snodgras_maizePopulations/Plots/human_rot_PCAonGeography.png", device ="png",dpi=300, width = 6, height = 5)  
+#ggsave(plot = human_rot_PCA, "/group/jrigrp11/snodgras_maizePopulations/Plots/human_rot_PCAonGeography.png", device ="png",dpi=300, width = 6, height = 5)  
 
 ### Human Mexican only ###
 Mexhuman_procrustes.proj<-procrustes(Y = select(Mexhuman, c("PC_1","PC_2")),
@@ -701,7 +732,6 @@ ggplot(maize_admixRemoved, aes(x=locations_longitude,y=locations_latitude))+
   guides(color = guide_legend(override.aes = list(alpha = 1)))+
   xlab("Longitude")+ylab("Latitude")
 
-
 ggplot(maize_admixRemoved, aes(x=locations_longitude,y=locations_latitude))+
   geom_point(color = "black", shape = 3)+
   geom_point(aes(x=transformed_PC1, y=transformed_PC2, color = locations_elevation))+
@@ -750,16 +780,17 @@ test_axes<- tibble(x1 = c(x_prime.1[1,1],y_prime.1[1,1]),
 #maize_admixremoved_rot<-
 ggplot(maize_admixRemoved, aes(x=rotated_PC1, y=rotated_PC2))+
   geom_point(aes(color = Regions), alpha = 0.5)+
-  geom_abline(slope = rotated_axes_slopes(maize_admixRemoved.procrustes$rotation)[1])+
-  geom_abline(slope = rotated_axes_slopes(maize_admixRemoved.procrustes$rotation)[2])+
-  geom_segment(data= test_axes*10, aes(x=x1, xend=x2, y=y1, yend=y2),color =c("red","yellow"))+
+  #geom_abline(slope = rotated_axes_slopes(transformed_maize.procrustes$rotation)[1])+
+  #geom_abline(slope = rotated_axes_slopes(transformed_maize.procrustes$rotation)[2])+
+  #geom_segment(data= test_axes*10, aes(x=x1, xend=x2, y=y1, yend=y2),color =c("red","yellow"))+
   
   theme_bw()+scale_color_manual(name = "Regions by Country",
                                 values = c("AndeanHighland"="#ff5b58","Amazonia"="#538fff","CentralSouthAmerica"="#ecc500","ChacoAmerindian"="#28d2ab","Mexico"="#2d1a77",
                                            "Patagonia"="#ec00c5","Mesoamerica"="#a7c957","Caribbean"="#802d2f"),
                                 labels = c("AndeanHighland"="Andean Highland","Amazonia"="Amazonia","CentralSouthAmerica"="Central South America","ChacoAmerindian"="Chaco Amerindian","Mexico"="Mexico",
                                            "Patagonia"="Patagonia","Mesoamerica"="Mesoamerica","Caribbean"="Caribbean"))+
-  guides(color = guide_legend(override.aes = list(alpha = 1)))
+  guides(color = guide_legend(override.aes = list(alpha = 1)))+
+  xlab("")+ylab("")+ theme(axis.text.x = element_blank(),axis.text.y = element_blank(),axis.ticks = element_blank())
 ggsave(plot=maize_admixremoved_rot, filename="/group/jrigrp11/snodgras_maizePopulations/Plots/maize_admixRemoved_rot_PCAonGeography.png",device = "png",dpi=300, width = 6, height = 6)
 
 maize_admixremoved_pca.plot<-ggplot(maize_admixRemoved, aes(x=PC1, y=PC2))+
@@ -857,7 +888,7 @@ protest(X = select(Mexmaize_admixRemoved, locations_latitude, locations_longitud
         Y = select(Mexmaize_admixRemoved, c(PC2, PC3)))
 
 ####FOR SOME REASON THE SCALE IS WAY OFF FOR THE MAIZE PCS COMPARED TO HUMAN PCS####
-#procrustes of the pair to get the maize (centroid) PCs onto the human PC coordinates
+#procrustes of the pair to get the maize (centroid) PCs onto the human PC coordinates (Mexhuman)
 centroidPCs_ind_human.procrustes<-procrustes(X=select(ungroup(centroidPCs_ind_human), PC_1,PC_2),
                                        Y=select(ungroup(centroidPCs_ind_human), PC1.maize,PC2.maize))
 #ss=0.7044, correlation=0.5437, significance=0.001
@@ -897,6 +928,53 @@ ggplot(centroidPCs_ind_human )+
   geom_point(shape=17, aes(x=PC_1,y=PC_2, color = Region.x), alpha = 0.3)+
   geom_point(aes(x=transformed_rotated_PC1,y=transformed_rotated_PC2, color = Region.x))+
   geom_segment(data = na.omit(centroids_human_maize),aes(x=mean_PC1.human,y=mean_PC2.human,xend=mean_PC1.maize,yend=mean_PC2.maize))+
+  theme_bw()+xlab("human PC1")+ylab("human PC2")+
+  scale_color_manual(
+    values = c("#fca207","#cb4d8e","#268189","#2d1aff",
+               "#b100ea","#386955","#a7c957"),
+    name = "Region", labels = c(
+      "Mexico, Center","Mexico, Gulf", 
+      "Mexico, Mayan","Mexico, North of Mesoamerica","Mexico, North",
+      "Mexico, Oaxaca","Mexico, West"))+
+  ggtitle("Maize (20km) Emphasized")
+
+#procrustes of the pair to get the maize (centroid) PCs onto the human PC coordinates (Mexhuman)
+centroidPCs_ind_human_Americas.procrustes<-procrustes(X=select(ungroup(centroidPCs_ind_human_Americas), PC_1.y,PC_2.y),
+                                             Y=select(ungroup(centroidPCs_ind_human_Americas), PC1.maize,PC2.maize))
+
+centroid_Americas.translation<-matrix(rep(centroidPCs_ind_human_Americas.procrustes$translation,345),nrow=345,ncol=2,byrow =TRUE)
+
+#centroidPCs_ind_human_Americas<-centroidPCs_ind_human_Americas %>% add_column(as.data.frame(centroidPCs_ind_human_Americas.procrustes$Yrot))
+#colnames(centroidPCs_ind_human_Americas)[445:446]<-c("rotated_PC1","rotated_PC2")
+centroidPCs_ind_human_Americas<-centroidPCs_ind_human_Americas %>% ungroup() %>%
+  mutate(transformed_rotated_PC1 = (centroidPCs_ind_human_Americas.procrustes$scale*t((centroidPCs_ind_human_Americas.procrustes$rotation) %*% t(as.matrix(centroidPCs_ind_human_Americas[,c("PC1.maize","PC2.maize")])))+centroid_Americas.translation)[,1],
+         transformed_rotated_PC2 = (centroidPCs_ind_human_Americas.procrustes$scale*t((centroidPCs_ind_human_Americas.procrustes$rotation) %*% t(as.matrix(centroidPCs_ind_human_Americas[,c("PC1.maize","PC2.maize")])))+centroid_Americas.translation)[,2])
+
+#plot the maize (centroid, procrustes) PCs and human PCs on the human PC coordinates
+centroids_human_maize_Americas<-centroidPCs_ind_human_Americas %>% group_by(Region.x) %>%
+  summarize(mean_PC1.maize = mean(transformed_rotated_PC1, na.rm=T),
+            mean_PC2.maize = mean(transformed_rotated_PC2, na.rm=T),
+            mean_PC1.human = mean(PC_1.y, na.rm=T),
+            mean_PC2.human = mean(PC_2.y, na.rm=T))
+
+ggplot(centroidPCs_ind_human_Americas )+
+  geom_point(shape=17, aes(x=PC_1.y,y=PC_2.y, color = Region.x))+
+  geom_point(aes(x=transformed_rotated_PC1,y=transformed_rotated_PC2, color = Region.x), alpha = 0.3)+
+  geom_segment(data = na.omit(centroids_human_maize_Americas),aes(x=mean_PC1.human,y=mean_PC2.human,xend=mean_PC1.maize,yend=mean_PC2.maize))+
+  theme_bw()+xlab("human PC1")+ylab("human PC2")+
+  scale_color_manual(
+    values = c("#fca207","#cb4d8e","#268189","#2d1aff",
+               "#b100ea","#386955","#a7c957"),
+    name = "Region", labels = c(
+      "Mexico, Center","Mexico, Gulf", 
+      "Mexico, Mayan","Mexico, North of Mesoamerica","Mexico, North",
+      "Mexico, Oaxaca","Mexico, West"))+
+  ggtitle("Humans Emphasized")
+
+ggplot(centroidPCs_ind_human_Americas )+
+  geom_point(shape=17, aes(x=PC_1.y,y=PC_2.y, color = Region.x), alpha = 0.3)+
+  geom_point(aes(x=transformed_rotated_PC1,y=transformed_rotated_PC2, color = Region.x))+
+  geom_segment(data = na.omit(centroids_human_maize_Americas),aes(x=mean_PC1.human,y=mean_PC2.human,xend=mean_PC1.maize,yend=mean_PC2.maize))+
   theme_bw()+xlab("human PC1")+ylab("human PC2")+
   scale_color_manual(
     values = c("#fca207","#cb4d8e","#268189","#2d1aff",
@@ -962,25 +1040,29 @@ colnames(human_21km_pairs)<-c("sample_id.human","Ethnicity.human","Country.human
                                          "taxonomies_ploidy.maize","Sample_ID_of_DNA_from_composite_samples.maize","Sample_ID_of_DNA_from_most_recent_CML_regenerations.maize",
                                          "Sample_ID_of_DNA_from_single_plants_used_in_GWAS.maize","Tester_GID.maize","Tester_pedigree.maize","Testcross_GID.maize","PrimaryRace.maize","PrimaryPurity.maize",
                                          "SecondaryRace.maize","Pedigree.maize","GrainType1.maize","GrainType2.maize","GrainType3.maize","GrainColor1.maize","GrainColor2.maize","GrainColor3.maize","PopulationType.maize")
-
+#note that the human PCs come from the Mexican only calculated PCs
 human_21km_pairs_PCs<-select(Mexhuman, starts_with("PC_"),"sample_name") %>% 
   left_join(x=human_21km_pairs, y= . , by = c("sample_id.human"="sample_name"))
 
 human_21km_pairs_PCs<-left_join(x=human_21km_pairs_PCs,
-                                       y=Mexmaize_admixRemoved, 
-                                       by=c("Sample_ID_of_DNA_from_single_plants_used_in_GWAS.maize"="ind_id"))
+                                       #y=Mexmaize_admixRemoved, 
+                                y=transformed_21km_maize,
+                                       by=c("Sample_ID_of_DNA_from_single_plants_used_in_GWAS.maize"="gwas_sample_id"))
 
 centroidPCs_Mexhuman21km<-human_21km_pairs_PCs %>% 
   group_by(sample_id.human,Region.human,Ethnicity.human,latitude.human,longitude.human) %>% 
   summarize(across(contains("PC"), ~ mean(.x,na.rm = T)),
             mean_elevation.maize=mean(locations_elevation.maize))
 colnames(centroidPCs_Mexhuman21km)[6:15]<-paste0("PC",1:10,".human")
-colnames(centroidPCs_Mexhuman21km)[16:(ncol(centroidPCs_Mexhuman21km)-1)]<-paste0("PC",1:1731,".maize")
+colnames(centroidPCs_Mexhuman21km)[16:(ncol(centroidPCs_Mexhuman21km)-1)]<-paste0("PC",1:422,".maize")
 
 Mexhuman_Mexmaize_procrustes<-procrustes(X=select(ungroup(centroidPCs_Mexhuman21km), PC1.human, PC2.human),
                                          Y=select(ungroup(centroidPCs_Mexhuman21km), PC1.maize, PC2.maize))
 protest(X=select(ungroup(centroidPCs_Mexhuman21km), PC1.human, PC2.human),
            Y=select(ungroup(centroidPCs_Mexhuman21km), PC1.maize, PC2.maize))
+#0.4304
+
+#### SKIPPING FROM HERE ####
 Mexhuman_Mexmaize.translation<-matrix(rep(Mexhuman_Mexmaize_procrustes$translation,345),nrow=345,ncol=2,byrow =TRUE) 
 
 centroidPCs_Mexhuman21km<-ungroup(centroidPCs_Mexhuman21km)
@@ -1010,20 +1092,20 @@ Mexhuman_mexmaize_procrustes_plot<-ggplot(centroidPCs_Mexhuman21km, aes(color = 
 ggsave(plot = Mexhuman_mexmaize_procrustes_plot, 
        filename = "/group/jrigrp11/snodgras_maizePopulations/Plots/21km_Mexhuman_Mexmaize_procrustes.png", dpi = 300, 
        device = "png", width = 5, height = 3)  
-  
+#### TO HERE ####  
 
 Mex21_all_by_all_correlations<-cor(centroidPCs_Mexhuman21km[,6:15],centroidPCs_Mexhuman21km[,16:(ncol(centroidPCs_Mexhuman21km)-1)])
 Mex21_all_by_all_correlations<-Mex21_all_by_all_correlations %>% as_tibble() %>% rownames_to_column(var = "human_PC")
 Mex21_all_by_all_correlations<-pivot_longer(data = Mex21_all_by_all_correlations, cols = ends_with(".maize"), names_to = "maize_PC", values_to = "correlation")
 Mex21_all_by_all_correlations<-mutate(Mex21_all_by_all_correlations, maize_PC = str_remove(maize_PC,".maize") %>% str_remove("PC"))
 Mex21_all_by_all_correlations$human_PC <- factor(Mex21_all_by_all_correlations$human_PC, levels = 1:10)
-Mex21_all_by_all_correlations$maize_PC <- factor(Mex21_all_by_all_correlations$maize_PC, levels = 1:1731)
+Mex21_all_by_all_correlations$maize_PC <- factor(Mex21_all_by_all_correlations$maize_PC, levels = 1:422)
 
 ggplot(Mex21_all_by_all_correlations)+
   geom_tile(aes(x=human_PC, y=maize_PC, fill = correlation))+
   theme_bw()+theme(axis.text.y = element_blank())+xlab("Mexican Human PCs")+ylab("Mexican Maize Admix Removed PCs")+
   colorspace::scale_fill_continuous_diverging()
-ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/21km_MexicanSamples_PCcorrelationheatmap.all_v_all.png",
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/2025-06-06-21km_MexicanSamples_PCcorrelationheatmap.all_v_all.png",
        device = "png", dpi = 300, width = 11,height = 8)
 
 filter(Mex21_all_by_all_correlations, maize_PC %in% (1:10)) %>%
@@ -1033,7 +1115,7 @@ filter(Mex21_all_by_all_correlations, maize_PC %in% (1:10)) %>%
   theme_bw()+xlab("Mexican Human PCs")+ylab("Mexican Maize Admix Removed PCs")+
   theme(axis.text = element_text(size=20), axis.title = element_text(size = 20, face="bold"))+
   colorspace::scale_fill_continuous_diverging()
-ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/21km_MexicanSamples_PCcorrelationheatmap.PCs1_10.png",
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/2025-06-06-21km_MexicanSamples_PCcorrelationheatmap.PCs1_10.png",
        device = "png", dpi = 300, width = 11,height = 8)
 
 filter(Mex21_all_by_all_correlations, correlation >= 0.5 | correlation <= -0.5) # 427 PC pairs met this criteria
@@ -1053,7 +1135,7 @@ ggplot(centroidPCs_Mexhuman21km)+
 
 plotting_pairs<-filter(Mex21_all_by_all_correlations, maize_PC %in% 1:20) %>% 
   filter(correlation >= 0.5 | correlation <= -0.5)
-pdf("/group/jrigrp11/snodgras_maizePopulations/Plots/21km_MexicanSamples_PCcorrelationPoints.pdf")
+pdf("/group/jrigrp11/snodgras_maizePopulations/Plots/2025-06-06-21km_MexicanSamples_PCcorrelationPoints.pdf")
 
 ggplot(centroidPCs_Mexhuman21km, aes(x=longitude.human,y=latitude.human, color=Region.human))+
   geom_point()+theme_bw()+ggtitle("Locations of each human 'Region' in Mexico")
@@ -1068,6 +1150,16 @@ for(i in 1:nrow(plotting_pairs)){
 
 dev.off()
 
+ggplot(centroidPCs_Mexhuman21km, aes(color=Region.human))+
+  geom_point(aes(x = PC1.human, y=PC2.maize))+
+  theme_bw()+ 
+  scale_color_manual(
+    values = c("#fca207","#cb4d8e","#268189","#2d1a77",
+               "#b100ea","#386651","#a7c957"),
+    name = "Region", labels = c("Mexico, Center","Mexico, Gulf", 
+                                "Mexico, Mayan","Mexico, \nNorth of Mesoamerica","Mexico, North",
+                                "Mexico, Oaxaca","Mexico, West"))
+
 #what is human PC3 and is any human PC correlated with elevation
 cor(centroidPCs_Mexhuman21km[,6:15],centroidPCs_Mexhuman21km[,ncol(centroidPCs_Mexhuman21km)])
 #PC 3 -0.15, PC6 0.13, PC10 -0.213
@@ -1077,7 +1169,24 @@ cor.test(pull(centroidPCs_Mexhuman21km[,11]),pull(centroidPCs_Mexhuman21km[,ncol
 cor.test(pull(centroidPCs_Mexhuman21km[,15]),pull(centroidPCs_Mexhuman21km[,ncol(centroidPCs_Mexhuman21km)])) #PC10 significant p=6.5e-5
 cor.test(pull(centroidPCs_Mexhuman21km[,6]),pull(centroidPCs_Mexhuman21km[,ncol(centroidPCs_Mexhuman21km)])) #PC1 not significant p=0.1257
 
-pdf("/group/jrigrp11/snodgras_maizePopulations/Plots/21km_MexicanSamples_HumanElevationPCcorrPoints.pdf",
+for(i in 6:15){
+  cor.test.result<-cor.test(pull(centroidPCs_Mexhuman21km[,i]),pull(centroidPCs_Mexhuman21km[,ncol(centroidPCs_Mexhuman21km)]))
+  if(cor.test.result$p.value <= 0.05/10){
+    print(paste(colnames(centroidPCs_Mexhuman21km)[i], 
+                "is significantly correlated with", 
+                colnames(centroidPCs_Mexhuman21km[,ncol(centroidPCs_Mexhuman21km)]),";",
+                "estimated correlation =", signif(cor.test.result$estimate, 3),
+                "p value =", signif(cor.test.result$p.value, 3)))
+  }else{
+    print(paste(colnames(centroidPCs_Mexhuman21km)[i], 
+                "is NOT significantly correlated with", 
+                colnames(centroidPCs_Mexhuman21km[,ncol(centroidPCs_Mexhuman21km)]),";",
+                "estimated correlation =", signif(cor.test.result$estimate, 3),
+                "p value =", signif(cor.test.result$p.value, 3)))
+  }
+}
+
+pdf("/group/jrigrp11/snodgras_maizePopulations/Plots/2025-06-06-21km_MexicanSamples_HumanElevationPCcorrPoints.pdf",
     height = 4, width = 6)
 
 ggplot(centroidPCs_Mexhuman21km, aes(x=longitude.human, y=latitude.human, color = mean_elevation.maize))+
@@ -1096,7 +1205,7 @@ ggplot(centroidPCs_Mexhuman21km, aes(x=longitude.human, y=latitude.human, color 
 
 dev.off()
 
-pdf("/group/jrigrp11/snodgras_maizePopulations/Plots/21km_MexicanSamples_MaizePCsGeoCorrWithHumanPCs.pdf",
+pdf("/group/jrigrp11/snodgras_maizePopulations/Plots/2025-06-06-21km_MexicanSamples_MaizePCsGeoCorrWithHumanPCs.pdf",
     height = 4, width = 6)
 
 ggplot(centroidPCs_Mexhuman21km, aes(x=longitude.human, y=latitude.human, color = PC1.maize))+
@@ -1112,9 +1221,14 @@ ggplot(centroidPCs_Mexhuman21km, aes(x=longitude.human, y=latitude.human, color 
 dev.off()
 
 ## after MaizePVEbyHumanPCs.R where each Maize snp is lm'ed with the first 10PCs of humans ##
-maize21km_human_lm_Rsq<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/lm_results.tsv")
+maize21km_human_lm_Rsq<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/21km_raw_LDprune_MAF0.01.genotypes.all_models.lm_results.tsv", col_names = c("snp_ID","r.squared","adj.r.squared","model_formula"))
+transformed_maize21km_human_lm_Rsq<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/21km_transformed_LDprune_MAF0.01.genotypes.all_models.lm_results.tsv")
 
 ggplot(maize21km_human_lm_Rsq)+
+  geom_histogram(aes(x=r.squared, fill = model_formula), binwidth = 0.01)+
+  geom_vline(xintercept = 0)+theme_bw()
+
+ggplot(transformed_maize21km_human_lm_Rsq)+
   geom_histogram(aes(x=r.squared), fill = "navy", binwidth = 0.01)+
   #geom_histogram(aes(x=adj.r.squared), fill="red", alpha=0.5, binwidth = 0.01)+
   geom_vline(xintercept = 0)+theme_bw()
@@ -1122,21 +1236,124 @@ ggplot(maize21km_human_lm_Rsq)+
 max(maize21km_human_lm_Rsq$r.squared)
 max(maize21km_human_lm_Rsq$adj.r.squared)
 
-filter(maize21km_human_lm_Rsq, adj.r.squared >= 0.3) %>% write_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/snps_atleast_0.3r.sq_lm.tsv")
+group_by(maize21km_human_lm_Rsq, model_formula) %>% 
+  summarize(max.value = max(r.squared))
+
+max(transformed_maize21km_human_lm_Rsq$r.squared)
+
+inner_join(x=maize21km_human_lm_Rsq, y=transformed_maize21km_human_lm_Rsq, by = "snp_ID", suffix = c(".raw",".transformed")) %>%
+  select(snp_ID, r.squared.raw, r.squared.transformed) %>% 
+  pivot_longer(cols = starts_with("r."), names_to = "genotype_type", values_to = "r.squared") %>%
+  mutate(genotype_type = str_remove_all(genotype_type, "r.squared.")) %>%
+  ggplot(aes(x=genotype_type, y=r.squared))+
+  geom_boxplot()+
+  geom_jitter(height = 0)+
+  theme_bw()
+
+ggplot()+
+  #geom_violin(data = maize21km_human_lm_Rsq, aes(x=-1, y=r.squared), fill = "navy")+
+  #geom_violin(data = transformed_maize21km_human_lm_Rsq, aes(x=1, y=r.squared), fill = "goldenrod")+
+  geom_jitter(data = transformed_maize21km_human_lm_Rsq, aes(x=0.5, y=r.squared), color = "goldenrod", height = 0, alpha = 0.3)+
+  geom_jitter(data = maize21km_human_lm_Rsq, aes(x=-0.5, y=r.squared), color = "navy", height = 0, alpha = 0.3)+
+  facet_wrap(vars(model_formula))+
+  theme_bw()+xlab("Raw (blue) vs Transformed (gold) genotypes")
+
+#filter(maize21km_human_lm_Rsq, adj.r.squared >= 0.3) %>% write_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/snps_atleast_0.3r.sq_lm.tsv")
 
 # on average across all SNPs, how much does human PCs explain maize genotypes
-summarize(maize21km_human_lm_Rsq, 
-          mean.r.squared = mean(r.squared, na.rm = TRUE),
-          mean.adj.r.squared = mean(adj.r.squared, na.rm = TRUE),
-          sd.r.squared = sd(r.squared, na.rm = TRUE),
-          sd.adj.r.squared = sd(adj.r.squared, na.rm = TRUE))
-c(0.0310 - (3*0.0203), 0.0310 + (3*0.0203))
-c(0.00715 - (3*0.0208), 0.00715 + (3*0.0208))
+maize21km_human_lm_Rsq %>% group_by(model_formula) %>%
+  summarize(mean.r.squared = mean(r.squared, na.rm = TRUE),
+            mean.adj.r.squared = mean(adj.r.squared, na.rm = TRUE),
+            sd.r.squared = sd(r.squared, na.rm = TRUE),
+            sd.adj.r.squared = sd(adj.r.squared, na.rm = TRUE))
+#c(0.0310 - (3*0.0203), 0.0310 + (3*0.0203))
+#c(0.00715 - (3*0.0208), 0.00715 + (3*0.0208))
 
 # so on average human pcs explain ~1-3% of the maize genotypes?
+transformed_maize21km_human_lm_Rsq %>% group_by(model_formula) %>%
+  summarize(mean.r.squared = mean(r.squared, na.rm = TRUE),
+            mean.adj.r.squared = mean(adj.r.squared, na.rm = TRUE),
+            sd.r.squared = sd(r.squared, na.rm = TRUE),
+            sd.adj.r.squared = sd(adj.r.squared, na.rm = TRUE))
+#c(0.0263 - (3*0.0184), 0.0263 + (3*0.0184))
+
+all_lm_Rsq<-inner_join(maize21km_human_lm_Rsq, 
+           transformed_maize21km_human_lm_Rsq, 
+           by=c("snp_ID", "model_formula"), 
+           suffix = c(".raw",".transf"))
+
+any(isTRUE(all_lm_Rsq$r.squared.raw == all_lm_Rsq$r.squared.transf))
+any(is.na(all_lm_Rsq$r.squared.raw == all_lm_Rsq$r.squared.transf))
+any(isFALSE(all_lm_Rsq$r.squared.raw == all_lm_Rsq$r.squared.transf))
+
+all_lm_Rsq<-all_lm_Rsq %>% 
+  mutate(numeric_model = case_when(model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10" ~ 10,
+                                   model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9" ~ 9,
+                                   model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8" ~ 8,
+                                   model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7" ~ 7,
+                                   model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6" ~ 6,
+                                   model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5" ~ 5,
+                                   model_formula == "PC_1+PC_2+PC_3+PC_4" ~ 4,
+                                   model_formula == "PC_1+PC_2+PC_3" ~ 3,
+                                   model_formula == "PC_1+PC_2" ~ 2,
+                                   model_formula == "PC_1" ~ 1),
+         simp_model = case_when(model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10" ~ "PC1_10",
+                                model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9" ~ "PC1_9",
+                                model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8" ~ "PC1_8",
+                                model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7" ~ "PC1_7",
+                                model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6" ~ "PC1_6",
+                                model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5" ~ "PC1_5",
+                                model_formula == "PC_1+PC_2+PC_3+PC_4" ~ "PC1_4",
+                                model_formula == "PC_1+PC_2+PC_3" ~ "PC1_3",
+                                model_formula == "PC_1+PC_2" ~ "PC1_2",
+                                model_formula == "PC_1" ~ "PC1"))
+all_lm_Rsq$simp_model<-factor(all_lm_Rsq$simp_model, levels = c("PC1",paste0("PC1_",2:10)))
+
+ggplot(all_lm_Rsq, aes(x=simp_model))+
+  #geom_violin(aes(y=r.squared.raw),fill = "navy", alpha = 0.5)+
+  geom_violin(aes(y=r.squared.transf), fill = "goldenrod",alpha = 0.5)
+
+all_lm_Rsq %>% group_by(model_formula, simp_model, numeric_model) %>%
+  summarize(median.r.squared = median(r.squared.transf),
+            mean.r.squared = mean(r.squared.transf),
+            as_tibble_row(quantile(r.squared.transf), .name_repair = \(x) paste0("q",parse_number(x)))) %>%
+  ggplot(aes(x=numeric_model))+
+  #geom_line(aes(y=q0), color = "yellow")+
+  #geom_line(aes(y=q100), color = "yellow")+
+  geom_line(aes(y=q25), linetype = 2)+
+  geom_line(aes(y=q75), linetype = 2)+
+  geom_line(aes(y=q50), color = "navy")+
+  #geom_line(aes(y=mean.r.squared))+
+  geom_point(aes(y=q50), color = "navy")+
+  geom_point(aes(x=0,y=0.00410),shape=2, color = "firebrick2")+ #latitude and longitude only
+  geom_segment(aes(x=0, y=0.00168,xend = 0,yend=0.00846),linetype = 1,color = "firebrick2")+ #lat and long only CI interval
+  geom_point(aes(x=10,y=0.0290),shape=2, color = "firebrick2")+ #lat and long + 10 human PCs
+  geom_segment(aes(x=10, xend=10, y=0.0203,yend=0.0401), linetype = 1, color = "firebrick2")+
+  geom_point(data = maize_21km_transformed.eigens[1:10,2],
+             aes(x=c(1:10),y=cumsum(value)), color = "goldenrod")+
+  geom_line(data = maize_21km_transformed.eigens[1:10,2],
+            aes(x=c(1:10),y=cumsum(value)),color = "goldenrod")+
+  theme_bw()+ylab("R squared")+xlab("Human PCs")+
+  scale_x_continuous(breaks = seq(0,10,1))+
+  ggtitle("Median R squared of maize genotypes by human PCs")
+
+#lat long q25=0.00168, q50=0.00410, q75=0.00846
+#
+
+all_lm_Rsq %>% group_by(model_formula, simp_model, numeric_model) %>%
+  summarize(mean.r.squared = mean(r.squared.transf),
+            as_tibble_row(quantile(r.squared.transf), .name_repair = \(x) paste0("q",parse_number(x)))) %>%
+  pivot_longer(cols = c(mean.r.squared, starts_with("q")), 
+               names_to = "Statistic", values_to = "r.squared") %>%
+  ggplot(aes(x=numeric_model))+
+  geom_line(aes(y=r.squared, color = Statistic))+
+  theme_bw()+xlab("Human PCs")
+
 #Is this comparable to what we'd get if we ran this on the maize PCs? 
 #ball park should be close to:
 Mexmaize_eigenval[1:10,2] %>% sum() #0.03418
+transformed_21km_maize.eigenval[1:10, 2] %>% sum() #0.03846
+ind_human_maize_20km_buffer.eigenval[1:10,2] %>% sum() #0.05348
 
 #map genotypes of top SNPs onto geographic positions
 #in unix:
@@ -1170,28 +1387,32 @@ for(i in 1:nrow(snps_of_interest)){
 
 dev.off()
 
-maize21km_human_lm_Rsq<-maize21km_human_lm_Rsq %>% 
+all_lm_Rsq<-all_lm_Rsq %>% 
   mutate(Chromosome = str_split(snp_ID, "_", simplify = T)[,1] %>% str_remove_all("S"),
          bp = str_split(snp_ID, "_", simplify = T)[,2] %>% as.numeric())
+all_lm_Rsq$Chromosome<-factor(all_lm_Rsq$Chromosome, levels = c("1","2","3","4","5","6","7","8","9","10","0"))
+
 #code from https://r-graph-gallery.com/101_Manhattan_plot.html
-manhattan_plot_rsq<- maize21km_human_lm_Rsq %>% 
+manhattan_plot_rsq<- filter(all_lm_Rsq,simp_model == "PC1_10") %>%
   group_by(Chromosome) %>% summarize(chr_len = max(bp)) %>% # compute chromosome size
   mutate(tot = cumsum(chr_len)-chr_len) %>% select(-chr_len) %>% # calculate cumulative position of each chr
-  left_join(maize21km_human_lm_Rsq, ., by= c("Chromosome"="Chromosome")) %>% #add to initial dataset
+  left_join(filter(all_lm_Rsq,simp_model == "PC1_10"), ., by= c("Chromosome"="Chromosome")) %>% #add to initial dataset
   arrange(Chromosome, bp) %>% mutate(BPcum = bp+tot) #add cumulative position of each SNP
 axisdf = manhattan_plot_rsq %>% group_by(Chromosome) %>% summarize(center = (max(BPcum) + min(BPcum) ) / 2)
 
 manhattan_plot_rsq$Chromosome<-factor(manhattan_plot_rsq$Chromosome, levels = 
                                         c("1","2","3","4","5","6","7","8","9","10","0"))
 
-manhattan_plot_rsq.plot<-ggplot(manhattan_plot_rsq, aes(x=BPcum, y= r.squared)) +
-  geom_point(aes(color = Chromosome, alpha = 0.8, size = 1.3))+
-  geom_hline(yintercept = quantile(manhattan_plot_rsq$r.squared,prob=1-5/100))+ #line at top 5%
+manhattan_plot_rsq.plot<-ggplot(manhattan_plot_rsq, aes(x=BPcum, y= r.squared.transf)) +
+  geom_point(aes(color = Chromosome, alpha = 0.8))+
+  #geom_hline(yintercept = quantile(manhattan_plot_rsq$r.squared.transf,prob=1-(0.05/nrow(manhattan_plot_rsq))))+ #bonferroni correction<- doesn't make sense because these aren't p-values
   scale_color_manual(values = c(rep(c("navy","goldenrod"), 5),"darkgrey"))+
   scale_x_continuous(label = axisdf$Chromosome, breaks = axisdf$center)+
-  scale_y_continuous(expand = c(0,0) )+
-  theme_bw()+theme(legend.position = "none", panel.border = element_blank(), panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+  scale_y_continuous(expand = c(0,0),limits = c(0,1))+
+  theme_bw()+xlab("")+ylab("R-squared")+
+  theme(legend.position = "none", panel.border = element_blank(), panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+
 ggsave(plot = manhattan_plot_rsq.plot, 
        filename = "/group/jrigrp11/snodgras_maizePopulations/Plots/LMr-squared_manhattan_plot.png",
-       device = "png", dpi = 300, width = 6, height = 4)
+       device = "png", dpi = 300, width = 8, height = 4)
 
