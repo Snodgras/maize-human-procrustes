@@ -234,13 +234,34 @@ ggplot(Mexhuman, aes(x=PC_1, y=PC_2))+
 
 ### Maize full data ###
 #plot pca
+maize<-mutate(maize, Regions = case_when(countries_country_name %in% c("BOLIVIA","CHILE","PERU") ~ "AndeanHighland",
+                                         countries_country_name %in% c("BRAZIL") ~ "Amazonia",
+                                         countries_country_name %in% c("COLOMBIA","ECUADOR","FRENCH GUIANA","HONDURAS","SURINAME","VENEZUELA") ~ "CentralSouthAmerica",
+                                         countries_country_name %in% c("PARAGUAY","URUGUAY") ~ "ChacoAmerindian",
+                                         countries_country_name %in% c("MEXICO") ~ "Mexico",
+                                         countries_country_name %in% c("ARGENTINA") ~ "Patagonia",
+                                         countries_country_name %in% c("COSTA RICA","EL SALVADOR","GUATEMALA",
+                                                                       "NICARAGUA","PANAMA") ~ "Mesoamerica",
+                                         countries_country_name %in% c("ANTIGUA AND BARBUDA","BARBADOS","CUBA",
+                                                                       "DOMINICAN REPUBLIC","GRENADA","GUADELOUPE",
+                                                                       "HAITI","MARTINIQUE","PUERTO RICO","SAINT VINCENT AND THE GRENADINES",
+                                                                       "TRINIDAD AND TOBAGO","VIRGIN ISLANDS (BRITISH)","VIRGIN ISLANDS (U.S.)") ~ "Caribbean"))
+
 ggplot(maize, aes(x=PC1, y=PC2))+
-  geom_point(aes(color = countries_country_name))+
+  geom_point(aes(color = Regions), alpha = 0.6)+
   coord_equal()+
   theme_bw()+
   xlab(paste0("PC1 (", signif(maize_eigenval[1,2]*100,3),"%)"))+
   ylab(paste0("PC2 (", signif(maize_eigenval[2,2]*100,3),"%)"))+
-  ggtitle("Maize PCA")
+  ggtitle("Maize PCA")+scale_color_manual(name = "Regions by Country",
+                                values = c("AndeanHighland"="#ff5b58","Amazonia"="#538fff","CentralSouthAmerica"="#ecc500","ChacoAmerindian"="#28d2ab","Mexico"="#2d1a77",
+                                           "Patagonia"="#ec00c5","Mesoamerica"="#a7c957","Caribbean"="#802d2f"),
+                                labels = c("AndeanHighland"="Andean Highland","Amazonia"="Amazonia","CentralSouthAmerica"="Central South America","ChacoAmerindian"="Chaco Amerindian","Mexico"="Mexico",
+                                           "Patagonia"="Patagonia","Mesoamerica"="Mesoamerica","Caribbean"="Caribbean"))+
+  guides(color = guide_legend(override.aes = list(alpha = 1)))+
+  theme(text = element_text(size = 20))
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/maize_PC1PC2.byRegion.png",device="png",dpi=300)
+
 #test function
 plot_maize_pca(maize, "Maize PCA", maize_eigenval[1,2], maize_eigenval[2,2])
 
@@ -269,9 +290,51 @@ ggplot(Mexmaize, aes(x=PC2, y=PC3))+
   geom_point(aes(color = locations_elevation))+
   coord_equal()+
   theme_bw()+
-  xlab(paste0("PC2 (", signif(Mexmaize_eigenval[2,2],3),"%)"))+
-  ylab(paste0("PC3 (", signif(Mexmaize_eigenval[3,2],3),"%)"))+
+  xlab(paste0("PC2 (", signif(Mexmaize_eigenval[2,2]*100,3),"%)"))+
+  ylab(paste0("PC3 (", signif(Mexmaize_eigenval[3,2]*100,3),"%)"))+
   ggtitle("Mexican Maize PCA, PC2 vs PC3")+ scale_color_viridis_c()
+
+maize_Mex_states<-read_csv("/group/jrigrp11/snodgras_maizePopulations/Intersection-MexicanMaize-StatesofMexico.csv")
+maize_Mex_states<-maize_Mex_states %>% 
+  mutate(Regional_Name = case_when(
+    shapeName %in% c("Baja California","Baja California Sur") ~ "Baja California",
+    shapeName %in% c("Chihuahua","Durango","Zacatecas","Aguascalientes","Coahuila de Zaragoza") ~ "Mexican Plateau",
+    shapeName %in% c("Nuevo Leon","San Luis Potosi") ~ "Sierra Madre Oriental",
+    shapeName %in% c("Guanajuato","Hidalgo","Queretaro de Arteaga") ~ "Mesa Central",
+    shapeName %in% c("Sinaloa","Sonora","Nayarit") ~ "Sierra Madre Occidental and Pacific Coastal Lowlands",
+    shapeName %in% c("Jalisco","Colima","Michoacan de Ocampo","Mexico","Distrito Federal","Morelos","Puebla","Tlaxcala") ~ "Cordillera Neovolcanica",
+    shapeName %in% c("Tamaulipas","Veracruz de Ignacio de la Llave","Tabasco") ~ "Gulf Coastal Plain",
+    shapeName %in% c("Guerrero","Oaxaca","Chiapas") ~ "Southern Highlands",
+    shapeName %in% c("Yucatan","Campeche","Quintana Roo") ~ "Yucatan Peninsula"
+  ))
+colnames(maize_Mex_states)[1:41]<-colnames(maize_meta)
+
+Mexmaize<-inner_join(Mexmaize, maize_Mex_states,by = c("id", "general_identifier", "name", "bank_number", "taxonomy_id", "collnumb", "colldate", "location_id",
+                                                  "locations_id", "locations_region", "locations_site_name", "locations_elevation", "locations_latitude",
+                                                  "locations_longitude", "countries_id", "countries_country_code2", "countries_country_code3", "countries_country_name",
+                                                  "taxonomies_id", "taxonomies_genus", "taxonomies_species", "taxonomies_crop_name", "taxonomies_ploidy",
+                                                  "Sample_ID_of_DNA_from_composite_samples", "Sample_ID_of_DNA_from_most_recent_CML_regenerations", "Tester_GID",
+                                                  "Tester_pedigree", "Testcross_GID", "PrimaryRace", "PrimaryPurity", "SecondaryRace", "Pedigree", "GrainType1", "GrainType2", "GrainType3",
+                                                  "GrainColor1", "GrainColor2", "GrainColor3", "PopulationType"))
+ggplot(Mexmaize, aes(x=PC1, y=PC2))+
+  geom_point(aes(color = Regional_Name), alpha = 0.8)+
+  coord_equal()+
+  theme_bw()+
+  xlab(paste0("PC1 (", signif(Mexmaize_eigenval[1,2]*100,3),"%)"))+
+  ylab(paste0("PC2 (", signif(Mexmaize_eigenval[2,2]*100,3),"%)"))+
+  ggtitle("Mexican Maize PCA, PC1 vs PC2")+ 
+scale_color_manual(values = c("Baja California"="#E28AFF",
+                             "Mexican Plateau"="#2d1a77",
+                             "Sierra Madre Oriental"="#6E54D9",
+                             "Sierra Madre Occidental and Pacific Coastal Lowlands"="#b100ea",
+                             "Mesa Central"="#fca207",
+                             "Gulf Coastal Plain"="#cb4d8e",
+                             "Cordillera Neovolcanica"="#a7c957",
+                             "Southern Highlands"="#386651",
+                             "Yucatan Peninsula"="#268189"))+
+  guides(color = guide_legend(override.aes = list(alpha = 1)))+
+  theme(text = element_text(size = 20))
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/Mexmaize_PCA_PC1_PC2_byRegion.png")
 
 #yucatan rough polygon: North = 22N lat, South =18N lat, East = 88W long, West = 90 long
 mutate(Mexmaize, Yucatan = case_when(locations_latitude <= 22 & locations_latitude >= 18 & 
@@ -386,6 +449,35 @@ ggplot(maize_admixRemoved, aes(x=PC2, y=PC3))+
   ylab(paste0("PC3 (", signif(maize_admixRemoved_eigenval[3,2]*100,3),"%)"))+
   ggtitle("Maize with mexicana anc. removed PCA: PC2 vs PC3")
 
+maize_admixRemoved<-maize_admixRemoved %>% mutate(Regions = case_when(countries_country_name %in% c("BOLIVIA","CHILE","PERU") ~ "AndeanHighland",
+                                  countries_country_name %in% c("BRAZIL") ~ "Amazonia",
+                                  countries_country_name %in% c("COLOMBIA","ECUADOR","FRENCH GUIANA","HONDURAS","SURINAME","VENEZUELA") ~ "CentralSouthAmerica",
+                                  countries_country_name %in% c("PARAGUAY","URUGUAY") ~ "ChacoAmerindian",
+                                  countries_country_name %in% c("MEXICO") ~ "Mexico",
+                                  countries_country_name %in% c("ARGENTINA") ~ "Patagonia",
+                                  countries_country_name %in% c("COSTA RICA","EL SALVADOR","GUATEMALA",
+                                                                "NICARAGUA","PANAMA") ~ "Mesoamerica",
+                                  countries_country_name %in% c("ANTIGUA AND BARBUDA","BARBADOS","CUBA",
+                                                                "DOMINICAN REPUBLIC","GRENADA","GUADELOUPE",
+                                                                "HAITI","MARTINIQUE","PUERTO RICO","SAINT VINCENT AND THE GRENADINES",
+                                                                "TRINIDAD AND TOBAGO","VIRGIN ISLANDS (BRITISH)","VIRGIN ISLANDS (U.S.)") ~ "Caribbean"))
+
+ggplot(maize_admixRemoved, aes(x=PC1, y=PC2))+
+  geom_point(aes(color = Regions), alpha=0.5)+
+  theme_bw()+
+  xlab(paste0("PC1 (", signif(maize_admixRemoved_eigenval[1,2]*100,3),"%)"))+
+  ylab(paste0("PC2 (", signif(maize_admixRemoved_eigenval[2,2]*100,3),"%)"))+
+  ggtitle("Maize with mexicana anc. removed PCA")+
+  theme(text = element_text(size = 20))+
+  scale_color_manual(name = "Regions by Country",
+                     values = c("AndeanHighland"="#ff5b58","Amazonia"="#538fff","CentralSouthAmerica"="#ecc500","ChacoAmerindian"="#28d2ab","Mexico"="#2d1a77",
+                                "Patagonia"="#ec00c5","Mesoamerica"="#a7c957","Caribbean"="#802d2f"),
+                     labels = c("AndeanHighland"="Andean Highland","Amazonia"="Amazonia","CentralSouthAmerica"="Central South America","ChacoAmerindian"="Chaco Amerindian","Mexico"="Mexico",
+                                "Patagonia"="Patagonia","Mesoamerica"="Mesoamerica","Caribbean"="Caribbean"))+
+  guides(color = guide_legend(override.aes = list(alpha = 1)))
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/maize_admixtureRemoved.PC1PC2.byRegion.allSNPs.png",
+       height = 7, width = 8, dpi=300, device = "png")
+
 #double checking admixture proportions by geography
 global_maize_admix<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/admix_removal/admixProp.GBSsamples.txt", col_names = c("ID","Admix"))
 global_maize_admix<-mutate(global_maize_admix, sample_id = str_split(ID, "\\.",simplify = T)[,1])
@@ -412,10 +504,13 @@ cor.test(maize_admixRemoved$PC3, maize_admixRemoved$PC2)
 #correlation between PC1 and global admixture
 temp<-inner_join(maize_admixRemoved, global_maize_admix, by = "sample_id") %>% 
   select(Admix, PC1, PC2, locations_elevation) 
+temp<-inner_join(maize, global_maize_admix, by = "sample_id") %>% 
+  select(Admix, PC1, PC2, locations_elevation) 
 cor.test(temp$Admix,temp$PC1)
 cor.test(temp$Admix,temp$PC2)
 cor.test(temp$locations_elevation,temp$PC1)
 cor.test(temp$locations_elevation,temp$PC2)
+cor.test(temp$Admix, temp$locations_elevation)
 
 ####This section would be the same as the maize object ####
 #test against untransformed maize (same cutoffs)
@@ -525,6 +620,8 @@ ggsave('/group/jrigrp11/snodgras_maizePopulations/Plots/HumanSamples_Procrustes_
 
 human_procrustes_rotation<-human_procrustes$rotation
 
+
+
 #slope = (y2-y1)/(x2-x1)
 
 #### RETURN HERE ####
@@ -577,12 +674,12 @@ human_rot_PCA<-ggplot()+
 #ggsave(plot = human_rot_PCA, "/group/jrigrp11/snodgras_maizePopulations/Plots/human_rot_PCAonGeography.png", device ="png",dpi=300, width = 6, height = 5)  
 
 ### Human Mexican only ###
-Mexhuman_procrustes.proj<-procrustes(Y = select(Mexhuman, c("PC_1","PC_2")),
-                                     X = select(Mexhuman, c("proj.longitude","proj.latitude"))
+Mexhuman_procrustes<-procrustes(Y = select(Mexhuman, c("PC_1","PC_2")),
+                                     X = select(Mexhuman, c("longitude","latitude"))
 )
-plot(Mexhuman_procrustes.proj)
+plot(Mexhuman_procrustes)
 protest(Y = select(Mexhuman, c("PC_1","PC_2")),
-        X = select(Mexhuman, c("proj.longitude","proj.latitude")))
+        X = select(Mexhuman, c("longitude","latitude")))
 
 ### Maize full data vs. geography ###
 #compute procrustes using vegan 2.6-4
@@ -818,6 +915,29 @@ ggplot(Mexmaize, aes(x=locations_longitude,y=locations_latitude))+
 ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/Mexmaize_non-transformed_procrustes_withGeography.png",
        dpi=300, device = "png", width = 8, height = 6)
 
+Mexmaize_rotAxes<-as.matrix(Mexmaize_procrustes$rotation)%*%as.matrix(axes) %>%
+  as_tibble() %>%
+  mutate(maizePC = c("PC1","PC2"),
+         slope = (y-yend)/(x-xend),
+         intercept = Mexmaize_procrustes$translation[1,2] - slope * (Mexmaize_procrustes$translation[1,1]-0))
+
+
+ggplot(Mexmaize, aes(x=locations_longitude,y=locations_latitude))+
+  geom_abline(data = Mexmaize_rotAxes, aes(slope = slope, intercept = intercept, linetype = maizePC))+
+  geom_point(aes(x=transformed_PC1, y=transformed_PC2, color = Regional_Name), alpha = 0.5)+
+  theme_bw()+xlab("Longitude")+ylab("Latitude")+coord_fixed()+
+  scale_color_manual(values = c("Baja California"="#E28AFF",
+                                "Mexican Plateau"="#2d1a77",
+                                "Sierra Madre Oriental"="#6E54D9",
+                                "Sierra Madre Occidental and Pacific Coastal Lowlands"="#b100ea",
+                                "Mesa Central"="#fca207",
+                                "Gulf Coastal Plain"="#cb4d8e",
+                                "Cordillera Neovolcanica"="#a7c957",
+                                "Southern Highlands"="#386651",
+                                "Yucatan Peninsula"="#268189"))
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/Mexmaize_procrustes_raw_latlong_byRegionalName.png", device="png",dpi=300,width = 8, height=7)
+
+
 protest(X = select(Mexmaize, locations_latitude, locations_longitude),
         Y = select(Mexmaize, c(PC1, PC2)))
 
@@ -841,6 +961,9 @@ Mexmaize_admixRemoved_eigenval<-read_tsv("/group/jrigrp11/snodgras_maizePopulati
 #join meta and pcs
 Mexmaize_admixRemoved<-mutate(Mexmaize_admixRemoved_pca, sample_id = str_split(ind_id, "\\.",simplify = T)[,1]) %>%
   inner_join(y=maize_meta, by = c("sample_id" = "Sample_ID_of_DNA_from_single_plants_used_in_GWAS"))
+Mexmaize_admixRemoved<-inner_join(Mexmaize_admixRemoved, 
+           select(maize_Mex_states, "Sample_ID_of_DNA_from_single_plants_used_in_GWAS","Regional_Name"),
+           by=c("sample_id"="Sample_ID_of_DNA_from_single_plants_used_in_GWAS"))
 
 ggplot(Mexmaize_admixRemoved, aes(x=PC1, y=PC2))+
   geom_point(aes(color = locations_elevation), alpha=0.5)+
@@ -859,6 +982,27 @@ ggplot(Mexmaize_admixRemoved, aes(x=PC2, y=PC3))+
   ggtitle("Mex maize with mexicana anc. removed PCA")+
   theme(text = element_text(size = 20))
 
+ggplot(Mexmaize_admixRemoved, aes(x=PC1, y=PC2))+
+  geom_point(aes(color = Regional_Name), alpha=0.8)+
+  theme_bw()+
+  xlab(paste0("PC1 (", signif(Mexmaize_admixRemoved_eigenval[1,2]*100,3),"%)"))+
+  ylab(paste0("PC2 (", signif(Mexmaize_admixRemoved_eigenval[2,2]*100,3),"%)"))+
+  ggtitle("Mex maize with mexicana anc. removed PCA")+
+  scale_color_manual(values = c("Baja California"="#E28AFF",
+                                "Mexican Plateau"="#2d1a77",
+                                "Sierra Madre Oriental"="#6E54D9",
+                                "Sierra Madre Occidental and Pacific Coastal Lowlands"="#b100ea",
+                                "Mesa Central"="#fca207",
+                                "Gulf Coastal Plain"="#cb4d8e",
+                                "Cordillera Neovolcanica"="#a7c957",
+                                "Southern Highlands"="#386651",
+                                "Yucatan Peninsula"="#268189"))+
+  guides(color = guide_legend(override.aes = list(alpha = 1)))+
+  theme(text = element_text(size = 20))
+  
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/Mexmaize_transformed_PCA_PC1_PC2_byRegions.png", 
+       device = "png", dpi = 300, width = 9, height = 6)
+
 Mexmaize_admixRemoved_procrustes<-procrustes(X = select(Mexmaize_admixRemoved, c(locations_longitude, locations_latitude)),
                                              Y = select(Mexmaize_admixRemoved, c(PC1, PC2)))
 Mexmaize_admixRemoved.translation<-matrix(rep(Mexmaize_admixRemoved_procrustes$translation,1727),nrow=1727,ncol=2,byrow =TRUE) 
@@ -871,6 +1015,33 @@ ggplot(Mexmaize_admixRemoved, aes(x=locations_longitude,y=locations_latitude))+
   theme_bw()+scale_color_viridis_c(name = "Elevation (m)")+xlab("Longitude")+ylab("Latitude")
 ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/Mexmaize_transformed_procrustes_withGeography.png",
        dpi = 300, device = "png", width = 8, height = 6)
+
+axes<-axes<-tibble(x=c(-100,0),
+                   xend=c(100,0),
+                   y=c(0,-100),
+                   yend=c(0,100))
+Mexmaize_admixRemoved_rotAxes<-as.matrix(Mexmaize_admixRemoved_procrustes$rotation)%*%as.matrix(axes) %>%
+  as_tibble() %>%
+  mutate(maizePC = c("PC1","PC2"),
+         slope = (y-yend)/(x-xend),
+         intercept = Mexmaize_admixRemoved_procrustes$translation[1,2] - slope * (Mexmaize_admixRemoved_procrustes$translation[1,1]-0))
+
+  
+ggplot(Mexmaize_admixRemoved, aes(x=locations_longitude,y=locations_latitude))+
+  geom_abline(data = Mexmaize_admixRemoved_rotAxes, aes(slope = slope, intercept = intercept, linetype = maizePC))+
+  geom_point(aes(x=transformed_PC1, y=transformed_PC2, color = Regional_Name), alpha = 0.5)+
+  theme_bw()+xlab("Longitude")+ylab("Latitude")+coord_fixed()+
+  scale_color_manual(values = c("Baja California"="#E28AFF",
+                               "Mexican Plateau"="#2d1a77",
+                               "Sierra Madre Oriental"="#6E54D9",
+                               "Sierra Madre Occidental and Pacific Coastal Lowlands"="#b100ea",
+                               "Mesa Central"="#fca207",
+                               "Gulf Coastal Plain"="#cb4d8e",
+                               "Cordillera Neovolcanica"="#a7c957",
+                               "Southern Highlands"="#386651",
+                               "Yucatan Peninsula"="#268189"))
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/Mexmaize_procrustes_transformed_latlong_byRegionalName.png", device="png",dpi=300,width = 8, height=7)
+
 protest(X = select(Mexmaize_admixRemoved, locations_latitude, locations_longitude),
         Y = select(Mexmaize_admixRemoved, c(PC1, PC2)))
 
@@ -1221,42 +1392,80 @@ ggplot(centroidPCs_Mexhuman21km, aes(x=longitude.human, y=latitude.human, color 
 dev.off()
 
 ## after MaizePVEbyHumanPCs.R where each Maize snp is lm'ed with the first 10PCs of humans ##
-maize21km_human_lm_Rsq<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/21km_raw_LDprune_MAF0.01.genotypes.all_models.lm_results.tsv", col_names = c("snp_ID","r.squared","adj.r.squared","model_formula"))
+maize21km_human_lm_Rsq<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/21km_raw_LDprune_MAF0.01.genotypes.all_models.lm_results.tsv")
 transformed_maize21km_human_lm_Rsq<-read_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/21km_transformed_LDprune_MAF0.01.genotypes.all_models.lm_results.tsv")
 
-ggplot(maize21km_human_lm_Rsq)+
-  geom_histogram(aes(x=r.squared, fill = model_formula), binwidth = 0.01)+
-  geom_vline(xintercept = 0)+theme_bw()
+#ggplot(maize21km_human_lm_Rsq)+
+#  geom_histogram(aes(x=r.squared, fill = model_formula), binwidth = 0.01)+
+#  geom_vline(xintercept = 0)+theme_bw()
 
-ggplot(transformed_maize21km_human_lm_Rsq)+
-  geom_histogram(aes(x=r.squared), fill = "navy", binwidth = 0.01)+
-  #geom_histogram(aes(x=adj.r.squared), fill="red", alpha=0.5, binwidth = 0.01)+
-  geom_vline(xintercept = 0)+theme_bw()
+#clean up model names
+maize21km_human_lm_Rsq <- maize21km_human_lm_Rsq %>% 
+  mutate(model_formula = str_remove_all(model_formula, ".maize"),
+         model_formula = str_remove_all(model_formula, "locations_"),
+         model_formula = str_replace_all(model_formula, "latitude","lat"),
+         model_formula = str_replace_all(model_formula, "longitude", "long"),
+         model_formula = str_replace_all(model_formula, "elevation", "elev")) 
 
-max(maize21km_human_lm_Rsq$r.squared)
-max(maize21km_human_lm_Rsq$adj.r.squared)
+transformed_maize21km_human_lm_Rsq<-transformed_maize21km_human_lm_Rsq %>% 
+  mutate(model_formula = str_remove_all(model_formula, ".maize"),
+         model_formula = str_remove_all(model_formula, "locations_"),
+         model_formula = str_replace_all(model_formula, "latitude","lat"),
+         model_formula = str_replace_all(model_formula, "longitude", "long")) 
 
+#What's the max/min r-squared value for each model?
 group_by(maize21km_human_lm_Rsq, model_formula) %>% 
-  summarize(max.value = max(r.squared))
+  summarize(max.value = max(r.squared), 
+            min.value = min(r.squared),
+            mean.value = mean(r.squared, na.rm = T)) %>%
+  ggplot(aes(x=model_formula))+
+  geom_point(aes(y=max.value))+
+  geom_point(aes(y=min.value))+
+  geom_point(aes(y=mean.value), shape = 23, color = "red", fill = "red")+
+  geom_text(aes(y=max.value+0.05,label = signif(max.value, 3)))+
+  geom_text(aes(y=mean.value+0.05,label = signif(mean.value, 2)), color = "darkred")+
+  geom_text(aes(y=min.value-0.05,label = signif(min.value, 1)))+
+  coord_flip()+xlab("")+ylab("R-squared")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90))+
+  ggtitle("Min,Mean, Max R-squared, Raw Genotypes")
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/lm_results_raw_points_MinMeanMax.png", 
+       width = 11, height = 8.5, dpi =300, device = "png")
 
-max(transformed_maize21km_human_lm_Rsq$r.squared)
+group_by(transformed_maize21km_human_lm_Rsq, model_formula) %>% 
+  summarize(max.value = max(r.squared), 
+            min.value = min(r.squared),
+            mean.value = mean(r.squared, na.rm = T)) %>%
+  ggplot(aes(x=model_formula))+
+  geom_point(aes(y=max.value))+
+  geom_point(aes(y=min.value))+
+  geom_point(aes(y=mean.value), shape = 23, color = "red", fill = "red")+
+  geom_text(aes(y=max.value+0.05,label = signif(max.value, 3)))+
+  geom_text(aes(y=mean.value+0.05,label = signif(mean.value, 2)), color = "darkred")+
+  geom_text(aes(y=min.value-0.05,label = signif(min.value, 1)))+
+  coord_flip()+xlab("")+ylab("R-squared")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90))+
+  ggtitle("Min,Mean, Max R-squared, Transformed Genotypes")
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/lm_results_transformed_points_MinMeanMax.png", 
+       width = 11, height = 8.5, dpi =300, device = "png")
 
-inner_join(x=maize21km_human_lm_Rsq, y=transformed_maize21km_human_lm_Rsq, by = "snp_ID", suffix = c(".raw",".transformed")) %>%
-  select(snp_ID, r.squared.raw, r.squared.transformed) %>% 
-  pivot_longer(cols = starts_with("r."), names_to = "genotype_type", values_to = "r.squared") %>%
-  mutate(genotype_type = str_remove_all(genotype_type, "r.squared.")) %>%
-  ggplot(aes(x=genotype_type, y=r.squared))+
-  geom_boxplot()+
-  geom_jitter(height = 0)+
-  theme_bw()
+#inner_join(x=maize21km_human_lm_Rsq, y=transformed_maize21km_human_lm_Rsq, by = c("snp_ID","model_formula"), suffix = c(".raw",".transformed")) %>%
+#  select(snp_ID, r.squared.raw, r.squared.transformed) %>% 
+#  pivot_longer(cols = starts_with("r."), names_to = "genotype_type", values_to = "r.squared") %>%
+#  mutate(genotype_type = str_remove_all(genotype_type, "r.squared.")) %>%
+#  ggplot(aes(x=genotype_type, y=r.squared))+
+#  geom_boxplot()+
+#  geom_jitter(height = 0)+
+#  theme_bw()
 
-ggplot()+
+#ggplot()+
   #geom_violin(data = maize21km_human_lm_Rsq, aes(x=-1, y=r.squared), fill = "navy")+
   #geom_violin(data = transformed_maize21km_human_lm_Rsq, aes(x=1, y=r.squared), fill = "goldenrod")+
-  geom_jitter(data = transformed_maize21km_human_lm_Rsq, aes(x=0.5, y=r.squared), color = "goldenrod", height = 0, alpha = 0.3)+
-  geom_jitter(data = maize21km_human_lm_Rsq, aes(x=-0.5, y=r.squared), color = "navy", height = 0, alpha = 0.3)+
-  facet_wrap(vars(model_formula))+
-  theme_bw()+xlab("Raw (blue) vs Transformed (gold) genotypes")
+#  geom_jitter(data = transformed_maize21km_human_lm_Rsq, aes(x=0.5, y=r.squared), color = "goldenrod", height = 0, alpha = 0.3)+
+#  geom_jitter(data = maize21km_human_lm_Rsq, aes(x=-0.5, y=r.squared), color = "navy", height = 0, alpha = 0.3)+
+#  facet_wrap(vars(model_formula))+
+#  theme_bw()+xlab("Raw (blue) vs Transformed (gold) genotypes")
 
 #filter(maize21km_human_lm_Rsq, adj.r.squared >= 0.3) %>% write_tsv("/group/jrigrp11/snodgras_maizePopulations/21km_maize/snps_atleast_0.3r.sq_lm.tsv")
 
@@ -1266,10 +1475,8 @@ maize21km_human_lm_Rsq %>% group_by(model_formula) %>%
             mean.adj.r.squared = mean(adj.r.squared, na.rm = TRUE),
             sd.r.squared = sd(r.squared, na.rm = TRUE),
             sd.adj.r.squared = sd(adj.r.squared, na.rm = TRUE))
-#c(0.0310 - (3*0.0203), 0.0310 + (3*0.0203))
-#c(0.00715 - (3*0.0208), 0.00715 + (3*0.0208))
-
 # so on average human pcs explain ~1-3% of the maize genotypes?
+
 transformed_maize21km_human_lm_Rsq %>% group_by(model_formula) %>%
   summarize(mean.r.squared = mean(r.squared, na.rm = TRUE),
             mean.adj.r.squared = mean(adj.r.squared, na.rm = TRUE),
@@ -1277,27 +1484,319 @@ transformed_maize21km_human_lm_Rsq %>% group_by(model_formula) %>%
             sd.adj.r.squared = sd(adj.r.squared, na.rm = TRUE))
 #c(0.0263 - (3*0.0184), 0.0263 + (3*0.0184))
 
-all_lm_Rsq<-inner_join(maize21km_human_lm_Rsq, 
+all_lm_Rsq<-left_join(maize21km_human_lm_Rsq, 
            transformed_maize21km_human_lm_Rsq, 
            by=c("snp_ID", "model_formula"), 
            suffix = c(".raw",".transf"))
 
-any(isTRUE(all_lm_Rsq$r.squared.raw == all_lm_Rsq$r.squared.transf))
-any(is.na(all_lm_Rsq$r.squared.raw == all_lm_Rsq$r.squared.transf))
-any(isFALSE(all_lm_Rsq$r.squared.raw == all_lm_Rsq$r.squared.transf))
+#### Line graph across all linear models ####
+summary_all_lm_Rsq<-all_lm_Rsq %>% group_by(model_formula) %>%
+  summarize(mean.raw = mean(r.squared.raw, na.rm = T),
+            mean.transf = mean(r.squared.transf, na.rm = T),
+            sd.raw = sd(r.squared.raw, na.rm = T),
+            sd.transf = sd(r.squared.transf, na.rm = T),
+            min.raw = min(r.squared.raw),
+            min.transf = min(r.squared.transf),
+            max.raw = max(r.squared.raw),
+            max.transf = max(r.squared.transf)
+            )
+
+summary_all_lm_Rsq<-summary_all_lm_Rsq %>% 
+  mutate(model_type = case_when(str_detect(model_formula,fixed("+elev")) ~ "Lat, Long, Elev.", 
+                                str_equal(model_formula, "elev") ~ "Elevation Only",
+                                str_detect(model_formula, "lat") & str_detect(model_formula, "elev", negate = T) ~ "Lat, Long",
+                                str_detect(model_formula, "lat", negate = T) & str_detect(model_formula, "elev", negate = T) ~ "Human PC only"),
+         model_type = factor(model_type, levels = c("Human PC only", "Lat, Long","Lat, Long, Elev.", "Elevation Only")),
+         PC_number = case_when(str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2", negate = T)
+                               & str_detect(model_formula, "PC_3", negate = T)
+                               & str_detect(model_formula, "PC_4", negate = T)
+                               & str_detect(model_formula, "PC_5", negate = T)
+                               & str_detect(model_formula, "PC_6", negate = T)
+                               & str_detect(model_formula, "PC_7", negate = T)
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 1,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3", negate = T)
+                               & str_detect(model_formula, "PC_4", negate = T)
+                               & str_detect(model_formula, "PC_5", negate = T)
+                               & str_detect(model_formula, "PC_6", negate = T)
+                               & str_detect(model_formula, "PC_7", negate = T)
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 2,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4", negate = T)
+                               & str_detect(model_formula, "PC_5", negate = T)
+                               & str_detect(model_formula, "PC_6", negate = T)
+                               & str_detect(model_formula, "PC_7", negate = T)
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 3,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5", negate = T)
+                               & str_detect(model_formula, "PC_6", negate = T)
+                               & str_detect(model_formula, "PC_7", negate = T)
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 4,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5")
+                               & str_detect(model_formula, "PC_6", negate = T)
+                               & str_detect(model_formula, "PC_7", negate = T)
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 5,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5")
+                               & str_detect(model_formula, "PC_6")
+                               & str_detect(model_formula, "PC_7", negate = T)
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 6,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5")
+                               & str_detect(model_formula, "PC_6")
+                               & str_detect(model_formula, "PC_7")
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 7,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5")
+                               & str_detect(model_formula, "PC_6")
+                               & str_detect(model_formula, "PC_7")
+                               & str_detect(model_formula, "PC_8")
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 8,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5")
+                               & str_detect(model_formula, "PC_6")
+                               & str_detect(model_formula, "PC_7")
+                               & str_detect(model_formula, "PC_8")
+                               & str_detect(model_formula, "PC_9")
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 9,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5")
+                               & str_detect(model_formula, "PC_6")
+                               & str_detect(model_formula, "PC_7")
+                               & str_detect(model_formula, "PC_8")
+                               & str_detect(model_formula, "PC_9")
+                               & str_detect(model_formula, "PC_10") ~ 10,
+                               .default = 0)
+         )
+
+ggplot(summary_all_lm_Rsq, aes(x=PC_number))+
+  geom_line(aes(y=mean.raw, color = model_type))+
+  geom_point(aes(y=mean.raw, color = model_type, shape = model_type))+
+  geom_line(aes(y=mean.raw+sd.raw, color = model_type),linetype = 2)+
+  geom_line(aes(y=mean.raw-sd.raw, color = model_type), linetype = 2)+
+  #geom_segment(aes(x=PC_number, xend = PC_number, y=mean.raw-sd.raw, yend=mean.raw+sd.raw, color = model_type))+
+  geom_point(aes(y=mean.raw+sd.raw, color = model_type, shape = model_type))+
+  geom_point(aes(y=mean.raw-sd.raw, color = model_type, shape = model_type))+
+  ggtitle("Raw maize genotype, r-squared")+ylab("R-squared")+xlab("Human PCs Included in Model")+
+  scale_x_continuous(limits = c(0,10),breaks = c(0:10))+
+  theme_bw()
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/lm_results_raw_linegraph_mean_1sd.png", 
+       width = 11, height = 8.5, dpi =300, device = "png")
+
+filter(summary_all_lm_Rsq, model_type %in% c("Human PC only","Lat, Long")) %>% 
+  ggplot(aes(x=PC_number))+
+  geom_line(aes(y=mean.transf, color = model_type))+
+  geom_point(aes(y=mean.transf, color = model_type, shape = model_type))+
+  geom_line(aes(y=mean.transf+sd.transf, color = model_type),linetype = 2)+
+  geom_line(aes(y=mean.transf-sd.transf, color = model_type), linetype = 2)+
+  #geom_segment(aes(x=PC_number, xend = PC_number, y=mean.transf-sd.transf, yend=mean.transf+sd.transf, color = model_type))+
+  geom_point(aes(y=mean.transf+sd.transf, color = model_type, shape = model_type))+
+  geom_point(aes(y=mean.transf-sd.transf, color = model_type, shape = model_type))+
+  ggtitle("Transformed maize genotype, r-squared")+ylab("R-squared")+xlab("Human PCs Included in Model")+
+  scale_x_continuous(limits = c(0,10),breaks = c(0:10))+
+  theme_bw()
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/lm_results_transf_linegraph_mean_1sd.png", 
+       width = 11, height = 8.5, dpi =300, device = "png")
+
+### LM for adjusted r-squared
+summary_all_lm_Rsq_adj<-all_lm_Rsq %>% group_by(model_formula) %>%
+  summarize(mean.raw = mean(adj.r.squared.raw, na.rm = T),
+            mean.transf = mean(adj.r.squared.transf, na.rm = T),
+            sd.raw = sd(adj.r.squared.raw, na.rm = T),
+            sd.transf = sd(adj.r.squared.transf, na.rm = T),
+            min.raw = min(adj.r.squared.raw),
+            min.transf = min(adj.r.squared.transf),
+            max.raw = max(adj.r.squared.raw),
+            max.transf = max(adj.r.squared.transf),
+            stderr.raw = sd.raw / sqrt(nrow(all_lm_Rsq)),
+            stderr.transf = sd.transf / sqrt(nrow(all_lm_Rsq))
+  )
+
+summary_all_lm_Rsq_adj<-summary_all_lm_Rsq_adj %>% 
+  mutate(model_type = case_when(str_detect(model_formula,fixed("+elev")) ~ "Lat, Long, Elev.", 
+                                str_equal(model_formula, "elev") ~ "Elevation Only",
+                                str_detect(model_formula, "lat") & str_detect(model_formula, "elev", negate = T) ~ "Lat, Long",
+                                str_detect(model_formula, "lat", negate = T) & str_detect(model_formula, "elev", negate = T) ~ "Human PC only"),
+         model_type = factor(model_type, levels = c("Human PC only", "Lat, Long","Lat, Long, Elev.", "Elevation Only")),
+         PC_number = case_when(str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2", negate = T)
+                               & str_detect(model_formula, "PC_3", negate = T)
+                               & str_detect(model_formula, "PC_4", negate = T)
+                               & str_detect(model_formula, "PC_5", negate = T)
+                               & str_detect(model_formula, "PC_6", negate = T)
+                               & str_detect(model_formula, "PC_7", negate = T)
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 1,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3", negate = T)
+                               & str_detect(model_formula, "PC_4", negate = T)
+                               & str_detect(model_formula, "PC_5", negate = T)
+                               & str_detect(model_formula, "PC_6", negate = T)
+                               & str_detect(model_formula, "PC_7", negate = T)
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 2,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4", negate = T)
+                               & str_detect(model_formula, "PC_5", negate = T)
+                               & str_detect(model_formula, "PC_6", negate = T)
+                               & str_detect(model_formula, "PC_7", negate = T)
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 3,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5", negate = T)
+                               & str_detect(model_formula, "PC_6", negate = T)
+                               & str_detect(model_formula, "PC_7", negate = T)
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 4,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5")
+                               & str_detect(model_formula, "PC_6", negate = T)
+                               & str_detect(model_formula, "PC_7", negate = T)
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 5,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5")
+                               & str_detect(model_formula, "PC_6")
+                               & str_detect(model_formula, "PC_7", negate = T)
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 6,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5")
+                               & str_detect(model_formula, "PC_6")
+                               & str_detect(model_formula, "PC_7")
+                               & str_detect(model_formula, "PC_8", negate = T)
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 7,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5")
+                               & str_detect(model_formula, "PC_6")
+                               & str_detect(model_formula, "PC_7")
+                               & str_detect(model_formula, "PC_8")
+                               & str_detect(model_formula, "PC_9", negate = T)
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 8,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5")
+                               & str_detect(model_formula, "PC_6")
+                               & str_detect(model_formula, "PC_7")
+                               & str_detect(model_formula, "PC_8")
+                               & str_detect(model_formula, "PC_9")
+                               & str_detect(model_formula, "PC_10", negate = T) ~ 9,
+                               str_detect(model_formula, "PC_1") 
+                               & str_detect(model_formula, "PC_2")
+                               & str_detect(model_formula, "PC_3")
+                               & str_detect(model_formula, "PC_4")
+                               & str_detect(model_formula, "PC_5")
+                               & str_detect(model_formula, "PC_6")
+                               & str_detect(model_formula, "PC_7")
+                               & str_detect(model_formula, "PC_8")
+                               & str_detect(model_formula, "PC_9")
+                               & str_detect(model_formula, "PC_10") ~ 10,
+                               .default = 0)
+  )
+
+ggplot(summary_all_lm_Rsq_adj, aes(x=PC_number))+
+  geom_line(aes(y=mean.raw, color = model_type))+
+  geom_point(aes(y=mean.raw, color = model_type, shape = model_type))+
+  geom_line(aes(y=mean.raw+stderr.raw, color = model_type),linetype = 2)+
+  geom_line(aes(y=mean.raw-stderr.raw, color = model_type), linetype = 2)+
+  #geom_segment(aes(x=PC_number, xend = PC_number, y=mean.raw-sd.raw, yend=mean.raw+sd.raw, color = model_type))+
+  geom_point(aes(y=mean.raw+stderr.raw, color = model_type, shape = model_type))+
+  geom_point(aes(y=mean.raw-stderr.raw, color = model_type, shape = model_type))+
+  ggtitle("Raw maize genotype, adjusted r-squared")+ylab("Adj. R-squared")+xlab("Human PCs Included in Model")+
+  scale_x_continuous(limits = c(0,10),breaks = c(0:10))+
+  theme_bw()
+#ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/lm_results_raw_adjRsq_linegraph_mean_1sd.png", 
+#       width = 11, height = 8.5, dpi =300, device = "png")
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/lm_results_raw_adjRsq_linegraph_mean_1stderr.png", 
+              width = 11, height = 8.5, dpi =300, device = "png")
+
+filter(summary_all_lm_Rsq_adj, model_type %in% c("Human PC only","Lat, Long")) %>% 
+  ggplot(aes(x=PC_number))+
+  geom_line(aes(y=mean.transf, color = model_type))+
+  geom_point(aes(y=mean.transf, color = model_type, shape = model_type))+
+  geom_line(aes(y=mean.transf+sd.transf, color = model_type),linetype = 2)+
+  geom_line(aes(y=mean.transf-sd.transf, color = model_type), linetype = 2)+
+  #geom_segment(aes(x=PC_number, xend = PC_number, y=mean.transf-sd.transf, yend=mean.transf+sd.transf, color = model_type))+
+  geom_point(aes(y=mean.transf+sd.transf, color = model_type, shape = model_type))+
+  geom_point(aes(y=mean.transf-sd.transf, color = model_type, shape = model_type))+
+  ggtitle("Transformed maize genotype, adjusted r-squared")+ylab("Adj. R-squared")+xlab("Human PCs Included in Model")+
+  scale_x_continuous(limits = c(0,10),breaks = c(0:10))+
+  theme_bw()
+ggsave("/group/jrigrp11/snodgras_maizePopulations/Plots/lm_results_transf_adjRsq_linegraph_mean_1sd.png", 
+       width = 11, height = 8.5, dpi =300, device = "png")
+
+###THIS WONT WORK BECAUSE RAN ELEVATION ONLY ON RAW, NOT TRANSF###
 
 all_lm_Rsq<-all_lm_Rsq %>% 
-  mutate(numeric_model = case_when(model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10" ~ 10,
-                                   model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9" ~ 9,
-                                   model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8" ~ 8,
-                                   model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7" ~ 7,
-                                   model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6" ~ 6,
-                                   model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5" ~ 5,
-                                   model_formula == "PC_1+PC_2+PC_3+PC_4" ~ 4,
-                                   model_formula == "PC_1+PC_2+PC_3" ~ 3,
-                                   model_formula == "PC_1+PC_2" ~ 2,
-                                   model_formula == "PC_1" ~ 1),
-         simp_model = case_when(model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10" ~ "PC1_10",
+  mutate(simp_model = case_when(model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9+PC_10" ~ "PC1_10",
                                 model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8+PC_9" ~ "PC1_9",
                                 model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7+PC_8" ~ "PC1_8",
                                 model_formula == "PC_1+PC_2+PC_3+PC_4+PC_5+PC_6+PC_7" ~ "PC1_7",
@@ -1310,10 +1809,9 @@ all_lm_Rsq<-all_lm_Rsq %>%
 all_lm_Rsq$simp_model<-factor(all_lm_Rsq$simp_model, levels = c("PC1",paste0("PC1_",2:10)))
 
 ggplot(all_lm_Rsq, aes(x=simp_model))+
-  #geom_violin(aes(y=r.squared.raw),fill = "navy", alpha = 0.5)+
   geom_violin(aes(y=r.squared.transf), fill = "goldenrod",alpha = 0.5)
 
-all_lm_Rsq %>% group_by(model_formula, simp_model, numeric_model) %>%
+all_lm_Rsq %>% group_by(model_formula) %>%#, simp_model, numeric_model) %>%
   summarize(median.r.squared = median(r.squared.transf),
             mean.r.squared = mean(r.squared.transf),
             as_tibble_row(quantile(r.squared.transf), .name_repair = \(x) paste0("q",parse_number(x)))) %>%
@@ -1336,6 +1834,58 @@ all_lm_Rsq %>% group_by(model_formula, simp_model, numeric_model) %>%
   theme_bw()+ylab("R squared")+xlab("Human PCs")+
   scale_x_continuous(breaks = seq(0,10,1))+
   ggtitle("Median R squared of maize genotypes by human PCs")
+
+all_lm_Rsq_long<-select(all_lm_Rsq, snp_ID, r.squared.raw, r.squared.transf, contains("model")) %>%
+  pivot_longer(cols=contains("r.squared"), names_to = "genotype_type", values_to = "r_squared") %>%
+  mutate(genotype_type = str_remove(genotype_type, "r.squared."))
+
+ggplot(all_lm_Rsq_long, aes(x=simp_model, y=r_squared,fill=genotype_type))+
+  geom_violin()
+
+filter(all_lm_Rsq, simp_model == "PC1") %>%
+  ggplot()+
+  geom_point(aes(x=-1,y=r.squared.raw))+
+  geom_point(aes(x=1,y=r.squared.transf))+
+  geom_segment(aes(x=-1,y=r.squared.raw,xend=1, yend=r.squared.transf), alpha = 0.3)
+
+bartlett.test(x=all_lm_Rsq_long$r_squared,g=all_lm_Rsq_long$snp_ID)
+all_lm_Rsq_long %>% group_by(simp_model, genotype_type) %>% summarize(sd(r_squared))
+
+summary(aov(formula = r_squared ~ simp_model+genotype_type, data = all_lm_Rsq_long))
+TukeyHSD(aov(formula = r_squared ~ simp_model+genotype_type, data = all_lm_Rsq_long))
+
+t.test(pull(filter(all_lm_Rsq, simp_model == "PC1")[,"r.squared.raw"]),
+       pull(filter(all_lm_Rsq, simp_model == "PC1")[,"r.squared.transf"]),
+       paired = TRUE)
+#So the decrease of r_squared is by 0.1% to 0.3% going from raw to transformed on average
+
+all_lm_Rsq %>% group_by(numeric_model) %>%
+  summarize(mean.r.squared.raw = mean(r.squared.raw),
+            #as_tibble_row(quantile(r.squared.raw), .name_repair = \(x) paste0("raw.q",parse_number(x))),
+            mean.r.squared.transf = mean(r.squared.transf),
+            #as_tibble_row(quantile(r.squared.transf), .name_repair = \(x) paste0("transf.q",parse_number(x))),
+            sd.raw = sd(r.squared.raw),
+            sd.transf=sd(r.squared.transf)) %>%
+  ggplot(aes(x=numeric_model))+
+  geom_line(aes(y=mean.r.squared.raw),color = "dodgerblue")+
+  geom_line(aes(y=mean.r.squared.transf),color = "navy")+
+  geom_line(aes(y=mean.r.squared.raw+3*sd.raw),linetype = 2,color = "dodgerblue")+
+  geom_line(aes(y=mean.r.squared.raw-3*sd.raw),linetype = 2,color = "dodgerblue")+
+  geom_line(aes(y=mean.r.squared.transf+3*sd.transf),linetype = 2,color = "navy")+
+  geom_line(aes(y=mean.r.squared.transf-3*sd.transf),linetype = 2,color = "navy")+
+  geom_point(aes(x=0,y=0.00410),shape=2, color = "firebrick2")+ #latitude and longitude only
+  geom_segment(aes(x=0, y=0.00168,xend = 0,yend=0.00846),linetype = 1,color = "firebrick2")+ #lat and long only CI interval
+  geom_point(aes(x=10,y=0.0290),shape=2, color = "firebrick2")+ #lat and long + 10 human PCs
+  geom_segment(aes(x=10, xend=10, y=0.0203,yend=0.0401), linetype = 1, color = "firebrick2")+
+  #geom_point(data = maize_21km_transformed.eigens[1:10,2],
+  #           aes(x=c(1:10),y=cumsum(value)), color = "goldenrod")+
+  #geom_line(data = maize_21km_transformed.eigens[1:10,2],
+  #          aes(x=c(1:10),y=cumsum(value)),color = "goldenrod")+
+  #PLACEHOLDER FOR NON_TRANSFORMED MAIZE EIGENS
+  theme_bw()+ylab("R squared")+xlab("Human PCs")+
+  scale_x_continuous(breaks = seq(0,10,1))+
+  ggtitle("Mean R squared of maize genotypes by human PCs")
+
 
 #lat long q25=0.00168, q50=0.00410, q75=0.00846
 #
@@ -1387,6 +1937,8 @@ for(i in 1:nrow(snps_of_interest)){
 
 dev.off()
 
+#### TO HERE ####
+
 all_lm_Rsq<-all_lm_Rsq %>% 
   mutate(Chromosome = str_split(snp_ID, "_", simplify = T)[,1] %>% str_remove_all("S"),
          bp = str_split(snp_ID, "_", simplify = T)[,2] %>% as.numeric())
@@ -1402,17 +1954,67 @@ axisdf = manhattan_plot_rsq %>% group_by(Chromosome) %>% summarize(center = (max
 
 manhattan_plot_rsq$Chromosome<-factor(manhattan_plot_rsq$Chromosome, levels = 
                                         c("1","2","3","4","5","6","7","8","9","10","0"))
+manhattan_objects<-function(model_formula_string){
+  manhattan_plot_rsq<-filter(all_lm_Rsq, model_formula == model_formula_string) %>%
+    group_by(Chromosome) %>% summarize(chr_len = max(bp)) %>% # compute chromosome size
+    mutate(tot = cumsum(chr_len)-chr_len) %>% select(-chr_len) %>% # calculate cumulative position of each chr
+    left_join(filter(all_lm_Rsq,model_formula == model_formula_string), ., by= c("Chromosome"="Chromosome")) %>% #add to initial dataset
+    arrange(Chromosome, bp) %>% mutate(BPcum = bp+tot) #add cumulative position of each SNP
+  manhattan_plot_rsq$Chromosome<-factor(manhattan_plot_rsq$Chromosome, levels = 
+                                          c("1","2","3","4","5","6","7","8","9","10","0"))
+  return(manhattan_plot_rsq)
+}
 
-manhattan_plot_rsq.plot<-ggplot(manhattan_plot_rsq, aes(x=BPcum, y= r.squared.transf)) +
+test_manhattan<-manhattan_objects("PC_1+PC_2")
+axisdf = test_manhattan %>% group_by(Chromosome) %>% summarize(center = (max(BPcum) + min(BPcum) ) / 2)
+
+
+manhattan_test.plot<-ggplot(test_manhattan, aes(x=BPcum, y= r.squared.transf)) +
   geom_point(aes(color = Chromosome, alpha = 0.8))+
-  #geom_hline(yintercept = quantile(manhattan_plot_rsq$r.squared.transf,prob=1-(0.05/nrow(manhattan_plot_rsq))))+ #bonferroni correction<- doesn't make sense because these aren't p-values
   scale_color_manual(values = c(rep(c("navy","goldenrod"), 5),"darkgrey"))+
   scale_x_continuous(label = axisdf$Chromosome, breaks = axisdf$center)+
   scale_y_continuous(expand = c(0,0),limits = c(0,1))+
   theme_bw()+xlab("")+ylab("R-squared")+
+  ggtitle(paste("PC_1+PC_2","transf genotypes", collapse = ", "))+
   theme(legend.position = "none", panel.border = element_blank(), panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
 
-ggsave(plot = manhattan_plot_rsq.plot, 
-       filename = "/group/jrigrp11/snodgras_maizePopulations/Plots/LMr-squared_manhattan_plot.png",
-       device = "png", dpi = 300, width = 8, height = 4)
+#ggsave(plot = manhattan_plot_rsq.plot, 
+#       filename = "/group/jrigrp11/snodgras_maizePopulations/Plots/LMr-squared_manhattan_plot.png",
+#       device = "png", dpi = 300, width = 8, height = 4)
 
+formula_list<-unique(all_lm_Rsq$model_formula)
+
+#pdf("/group/jrigrp11/snodgras_maizePopulations/Plots/lm_r-squared_manhattan_plots.pdf")
+for(i in formula_list){
+  test_manhattan<-manhattan_objects(i)
+  axisdf = test_manhattan %>% group_by(Chromosome) %>% summarize(center = (max(BPcum) + min(BPcum) ) / 2)
+  
+  manhattan_raw.plot<-ggplot(test_manhattan, aes(x=BPcum, y= r.squared.raw)) +
+    geom_point(aes(color = Chromosome, alpha = 0.8))+
+    scale_color_manual(values = c(rep(c("navy","goldenrod"), 5),"darkgrey"))+
+    scale_x_continuous(label = axisdf$Chromosome, breaks = axisdf$center)+
+    scale_y_continuous(expand = c(0,0),limits = c(0,1))+
+    theme_bw()+xlab("")+ylab("R-squared")+
+    ggtitle(paste(i,"raw genotypes", collapse = ", "))+
+    theme(legend.position = "none", panel.border = element_blank(), panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+  #print(manhattan_raw.plot)
+  ggsave(plot = manhattan_raw.plot, 
+                filename = paste0("/group/jrigrp11/snodgras_maizePopulations/Plots/lm_r-squared_raw_manhattan_",i,".png"),
+                device = "png", dpi = 300, width = 8, height = 4)
+    
+  if(str_detect(i, "elev", negate = T)){
+    manhattan_transf.plot<-ggplot(test_manhattan, aes(x=BPcum, y= r.squared.transf)) +
+      geom_point(aes(color = Chromosome, alpha = 0.8))+
+      scale_color_manual(values = c(rep(c("navy","goldenrod"), 5),"darkgrey"))+
+      scale_x_continuous(label = axisdf$Chromosome, breaks = axisdf$center)+
+      scale_y_continuous(expand = c(0,0),limits = c(0,1))+
+      theme_bw()+xlab("")+ylab("R-squared")+
+      ggtitle(paste(i,"transf genotypes", collapse = ", "))+
+      theme(legend.position = "none", panel.border = element_blank(), panel.grid.major.x = element_blank(), panel.grid.minor.x = element_blank())
+    ggsave(plot = manhattan_transf.plot, 
+           filename = paste0("/group/jrigrp11/snodgras_maizePopulations/Plots/lm_r-squared_transf_manhattan_",i,".png"),
+           device = "png", dpi = 300, width = 8, height = 4)
+    #print(manhattan_transf.plot)
+  }
+}
+#dev.off()

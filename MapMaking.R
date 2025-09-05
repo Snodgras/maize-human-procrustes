@@ -97,60 +97,65 @@ mutate(america_boundaries, country_fill = case_when(iso3 %in% c("MEX") ~ "Mexico
     name = "Region", labels = c("Mexico, Center","Mexico, Gulf", 
                                 "Mexico, Mayan","Mexico, \nNorth of Mesoamerica","Mexico, North",
                                 "Mexico, Oaxaca","Mexico, West"))
+ggsave("Plots/21km_sample_map.byRegion.png",device="png",dpi=300)
+
+#### Mexico states ####
+#from https://www.geoboundaries.org/countryDownloads.html
+Mexico_boundaries<-st_read("geoBoundaries-MEX-ADM1-all/geoBoundaries-MEX-ADM1_simplified.shp")
+Mexico_boundaries<-Mexico_boundaries %>% 
+  mutate(Regional_Name = case_when(
+    shapeName %in% c("Baja California","Baja California Sur") ~ "Baja California",
+    shapeName %in% c("Chihuahua","Durango","Zacatecas","Aguascalientes","Coahuila de Zaragoza") ~ "Mexican Plateau",
+    shapeName %in% c("Nuevo Leon","San Luis Potosi") ~ "Sierra Madre Oriental",
+    shapeName %in% c("Guanajuato","Hidalgo","Queretaro de Arteaga") ~ "Mesa Central",
+    shapeName %in% c("Sinaloa","Sonora","Nayarit") ~ "Sierra Madre Occidental and Pacific Coastal Lowlands",
+    shapeName %in% c("Jalisco","Colima","Michoacan de Ocampo","Mexico","Distrito Federal","Morelos","Puebla","Tlaxcala") ~ "Cordillera Neovolcanica",
+    shapeName %in% c("Tamaulipas","Veracruz de Ignacio de la Llave","Tabasco") ~ "Gulf Coastal Plain",
+    shapeName %in% c("Guerrero","Oaxaca","Chiapas") ~ "Southern Highlands",
+    shapeName %in% c("Yucatan","Campeche","Quintana Roo") ~ "Yucatan Peninsula"
+  ))
+ggplot(Mexico_boundaries)+
+  geom_sf(aes(fill = Regional_Name), color = "black")+
+  #geom_point(data = filter(maize_meta, countries_country_name == "MEXICO"), 
+  #           aes(x=locations_longitude,y=locations_latitude))+
+  xlab("")+ylab("")+theme_bw()+
+  scale_fill_manual(values = c("Baja California"="#E28AFF",
+                               "Mexican Plateau"="#2d1a77",
+                               "Sierra Madre Oriental"="#6E54D9",
+                               "Sierra Madre Occidental and Pacific Coastal Lowlands"="#b100ea",
+                               "Mesa Central"="#fca207",
+                               "Gulf Coastal Plain"="#cb4d8e",
+                               "Cordillera Neovolcanica"="#a7c957",
+                               "Southern Highlands"="#386651",
+                               "Yucatan Peninsula"="#268189"))
 
 
-###Scratch
-# PC 1: -1,0 ; 1,0
-# PC 2: 0,-1 ; 0,1
+ggsave("Plots/Mexican_states_colored.map.png",device = "png",dpi=300, width = 11, height = 8.5)
 
-axes<-matrix(c(-1,0,1,0,0,-1,0,1), nrow = 4,ncol = 2)
-theta = 20
-rot_mat = axes*c(cos(theta),sin(theta))
-rot_axes<-rot_mat*axes
-ggplot()+
-  geom_point(data = as.data.frame(axes), 
-               aes(x = V1, y=V2), color = "black")+
-  geom_point(data = as.data.frame(rot_axes),
-             aes(x=V1, y=V2), color = "red")
-  #geom_segment(data = rot_axes, 
-  #             aes(x = x_start, y=y_start, xend = x_end, yend = y_end), color = "red")
-  
-rot_mat<-matrix(c(0.99969465, 0.02471028, -0.02471028, 0.99969465),
-                ncol = 2, nrow = 2)
-rot_axes<-rot_mat %*% t(axes)
-colnames(rot_axes)<-c(x1,x2,y1,y2)
-ggplot()+
-  geom_segment(data = as.data.frame(t(axes)),
-               aes(x=V1, xend=V3,y=V2,yend=V4))+
-  geom_segment(data = as.data.frame(rot_axes),
-               aes(x=V1, xend=V3,y=V2,yend=V4),color="red")
-rot_mat<-matrix(c(-0.9755890, 0.2196042, 0.2196042, 0.9755890),
-                ncol = 2, nrow = 2)
-rot_axes<-rot_mat %*% t(axes)
-axes1.slope = (rot_axes[2,3] - rot_axes[2,1])/(rot_axes[1,3] - rot_axes[1,1])
+maize_Mex_states<-read_csv("Intersection-MexicanMaize-StatesofMexico.csv")
+maize_Mex_states<-maize_Mex_states %>% 
+  mutate(Regional_Name = case_when(
+    shapeName %in% c("Baja California","Baja California Sur") ~ "Baja California",
+    shapeName %in% c("Chihuahua","Durango","Zacatecas","Aguascalientes","Coahuila de Zaragoza") ~ "Mexican Plateau",
+    shapeName %in% c("Nuevo Leon","San Luis Potosi") ~ "Sierra Madre Oriental",
+    shapeName %in% c("Guanajuato","Hidalgo","Queretaro de Arteaga") ~ "Mesa Central",
+    shapeName %in% c("Sinaloa","Sonora","Nayarit") ~ "Sierra Madre Occidental and Pacific Coastal Lowlands",
+    shapeName %in% c("Jalisco","Colima","Michoacan de Ocampo","Mexico","Distrito Federal","Morelos","Puebla","Tlaxcala") ~ "Cordillera Neovolcanica",
+    shapeName %in% c("Tamaulipas","Veracruz de Ignacio de la Llave","Tabasco") ~ "Gulf Coastal Plain",
+    shapeName %in% c("Guerrero","Oaxaca","Chiapas") ~ "Southern Highlands",
+    shapeName %in% c("Yucatan","Campeche","Quintana Roo") ~ "Yucatan Peninsula"
+  ))
+colnames(maize_Mex_states)[1:41]<-colnames(maize_meta)
+ggplot(Mexico_boundaries)+
+  geom_sf(aes(fill = Regional_Name), color = "black", alpha = 0.4)+
+  geom_point(data = maize_Mex_states, 
+             aes(x=locations_longitude,y=locations_latitude, color=Regional_Name))+
+  xlab("")+ylab("")+theme_bw()
 
-ggplot()+
-  geom_segment(data = as.data.frame(t(axes))%>% add_column(axis_name = c("PC1.orig","PC2.orig")),
-               aes(x=V1, xend=V3,y=V2,yend=V4, color = axis_name))+
-  geom_segment(data = (as.data.frame(rot_axes) %>% add_column(axis_name = c("PC1","PC2"))),
-               aes(x=V1, xend=V3,y=V2,yend=V4, color = axis_name))+
-  geom_abline(slope = axes1.slope, intercept = 0)
+#This doesn't work well because this isn't the Mexican only PCA
+inner_join(maize_admixRemoved_pca, maize_Mex_states, by=c("ind_id" = "Sample_ID_of_DNA_from_single_plants_used_in_GWAS")) %>%
+  ggplot(aes(x=PC1,y=PC2, color = Regional_Name))+
+  geom_point()+
+  theme_bw()+
+  ggtitle("Maize admix removed PCA")
 
-
-x_point.1 = c(-1,0)
-x_point.2 = c(1,0)
-y_point.1 = c(0,-1)
-y_point.2 = c(0,1)
-
-x_prime.1 = x_point.1 %*% rot_mat
-x_prime.2 = x_point.2 %*% rot_mat
-y_prime.1 = y_point.1 %*% rot_mat
-y_prime.2 = y_point.2 %*% rot_mat
-
-x_prime.slope = (x_prime.2[,2] - x_prime.1[,2])/(x_prime.2[,1]-x_prime.1[,1])
-y_prime.slope = (y_prime.2[,2] - y_prime.1[,2])/(y_prime.2[,1]-y_prime.1[,1])
-
-ggplot()+
-  geom_hline(yintercept = 0)+geom_vline(xintercept = 0)+
-  geom_abline(slope = x_prime.slope, color = "red")+
-  geom_abline(slope = y_prime.slope, color = "blue")
