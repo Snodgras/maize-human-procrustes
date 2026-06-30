@@ -54,6 +54,24 @@ ggplot(america_boundaries)+
                      labels = c("Amazonia","Andean Highland","Central South America", "Chaco-Amerindian","MX, Center of Mexico","MX, Gulf of Mexico","MX, Mayan","MX, North of Mesoamerica","MX, North of Mexico","MX, Oaxaca","MX, West of Mexico","Patagonia"))
 ggsave("Plots/Human_Sampling_Locations.sampleSizeHighlighted.png",device = "png",dpi=300)
 
+ggplot(Mexico_boundaries)+
+  geom_sf(fill = "white", color = "black")+
+  geom_point(data = (filter(human, str_detect(Region,"Mexico")) %>% group_by(latitude, longitude, Region) %>% count()), 
+             aes(x=longitude, y=latitude, color = Region, size = n),
+             alpha = 0.8)+
+  theme_bw()+xlab("")+ylab("")+
+  #ggtitle("Human sampling locations")+
+  guides(color = guide_legend(override.aes = list(alpha = 1, size = 3)))+
+  scale_color_manual(values = c("#fca207","#cb4d8e","#268189","#2d1a77",
+                                "#b100ea","#386651","#a7c957"),
+                     labels = c("MX, Center of Mexico","MX, Gulf of Mexico","MX, Mayan","MX, North of Mesoamerica","MX, North of Mexico","MX, Oaxaca","MX, West of Mexico"))+
+  guides(size=guide_legend(title="Sample Count"))+
+  theme(axis.text = element_text(size = 18),
+        legend.text = element_text(size = 18),
+        legend.title = element_text(size = 18, face = "bold"))
+ggsave("Plots/Human_Sampling_Locations.Mexico.sampleSizeHighlighted.png",device = "png",dpi=300,
+       width= 11.5, height = 6)
+
 # Let's try the same thing but now for maize
 mutate(america_boundaries, country_fill = case_when(iso3 %in% c("BOL","CHL","PER") ~ "AndeanHighland",
                                                     iso3 %in% c("BRA") ~ "Amazonia",
@@ -82,7 +100,7 @@ mutate(america_boundaries, country_fill = case_when(iso3 %in% c("MEX") ~ "Mexico
   #geom_sf(aes(fill = country_fill), color = "black", alpha = 0.5)+
   geom_sf(color = "black")+
   geom_point(data = unique(select(human_21km_pairs, Region.human, sample_id.human, latitude.human, longitude.human)),
-             aes(x=longitude.human, y=latitude.human, color = Region.human), size=1)+
+             aes(x=longitude.human, y=latitude.human, color = Region.human), size=3)+
   geom_point(data = filter(maize_meta, Sample_ID_of_DNA_from_single_plants_used_in_GWAS %in% maize_21km_non_transformed.pca$ind_id), 
              aes(x=locations_longitude,y=locations_latitude), size =0.1)+
   xlab("")+ylab("")+theme_bw()+
@@ -96,8 +114,10 @@ mutate(america_boundaries, country_fill = case_when(iso3 %in% c("MEX") ~ "Mexico
                "#b100ea","#386651","#a7c957"),
     name = "Region", labels = c("Mexico, Center","Mexico, Gulf", 
                                 "Mexico, Mayan","Mexico, \nNorth of Mesoamerica","Mexico, North",
-                                "Mexico, Oaxaca","Mexico, West"))
-ggsave("Plots/21km_sample_map.byRegion.png",device="png",dpi=300)
+                                "Mexico, Oaxaca","Mexico, West"))+
+  guides(color = "none")+theme(axis.text = element_text(size=6))
+
+ggsave("Plots/21km_sample_map.byRegion.png",device="png",dpi=300, width = 2.5, height = 1.8, units="in")
 
 #### Mexico states ####
 #from https://www.geoboundaries.org/countryDownloads.html
@@ -117,9 +137,10 @@ Mexico_boundaries<-Mexico_boundaries %>%
 ggplot(Mexico_boundaries)+
   geom_sf(aes(fill = Regional_Name), color = "black")+
   #geom_point(data = filter(maize_meta, countries_country_name == "MEXICO"), 
-  #           aes(x=locations_longitude,y=locations_latitude))+
+  #           aes(x=locations_longitude,y=locations_latitude),
+  #           size = 0.5, alpha =0.25)+
   xlab("")+ylab("")+theme_bw()+
-  scale_fill_manual(values = c("Baja California"="#E28AFF",
+  scale_fill_manual(values = c("Baja California"="#CCCCCC",
                                "Mexican Plateau"="#2d1a77",
                                "Sierra Madre Oriental"="#6E54D9",
                                "Sierra Madre Occidental and Pacific Coastal Lowlands"="#b100ea",
@@ -127,10 +148,38 @@ ggplot(Mexico_boundaries)+
                                "Gulf Coastal Plain"="#cb4d8e",
                                "Cordillera Neovolcanica"="#a7c957",
                                "Southern Highlands"="#386651",
-                               "Yucatan Peninsula"="#268189"))
+                               "Yucatan Peninsula"="#268189"))+
+  guides(fill = "none")
+ggsave("Plots/Mexican_states_colored.maizepoints.map.png",device = "png",dpi=300, width = 3.4, height = 2.25)
+ggsave("Plots/Mexican_states_colored.map.png",device = "png",dpi=300, width = 3.4, height = 2.25)
+
+ggplot(Mexico_boundaries)+
+  geom_sf(fill="#BBBBBB", color = "black")+
+  geom_point(data = filter(maize_meta, countries_country_name == "MEXICO"), 
+             aes(x=locations_longitude,
+                 y=locations_latitude,
+                 color = locations_elevation),
+             size = 1, alpha =0.5)+
+  xlab("")+ylab("")+theme_bw()+
+  scale_color_viridis_c(name = "Elevation (m)")
+ggsave("Plots/Mexican_states.maizepointsbyelevation.map.png",device = "png",dpi=300, width = 4.75, height = 2.5)
 
 
-ggsave("Plots/Mexican_states_colored.map.png",device = "png",dpi=300, width = 11, height = 8.5)
+ggplot(Mexico_boundaries)+
+  geom_sf(fill="#EEEEEE", color = "black")+
+  geom_point(data = filter(maize_meta, countries_country_name == "MEXICO"), 
+             aes(x=locations_longitude,
+                 y=locations_latitude,
+                 color = locations_elevation),
+             size = 1, alpha =0.6)+
+  xlab("")+ylab("")+theme_bw()+
+  scale_color_viridis_c(name = "Elevation (m)")+
+  theme(axis.text = element_text(size = 18),
+        legend.text = element_text(size = 18),
+        legend.title = element_text(size = 18, face = "bold"))
+ggsave("Plots/Mexican_states.maizepointsbyelevation.poster.map.png",device = "png",dpi=300,
+       height = 4, width = 8)
+
 
 maize_Mex_states<-read_csv("Intersection-MexicanMaize-StatesofMexico.csv")
 maize_Mex_states<-maize_Mex_states %>% 
